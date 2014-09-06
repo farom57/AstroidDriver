@@ -80,6 +80,20 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private INDISwitchProperty abortMotionP; // TELESCOPE_ABORT_MOTION
 	private INDISwitchElement abortMotionE; // ABORT_MOTION
 
+	private INDINumberProperty timedGuideNSP; // TELESCOPE_TIMED_GUIDE_NS
+	private INDINumberElement timedGuideNE; // TIMED_GUIDE_N
+	private INDINumberElement timedGuideSE; // TIMED_GUIDE_S
+	
+	private INDINumberProperty timedGuideWEP; // TELESCOPE_TIMED_GUIDE_WE
+	private INDINumberElement timedGuideWE; // TIMED_GUIDE_W
+	private INDINumberElement timedGuideEE; // TIMED_GUIDE_E
+	
+	private INDINumberProperty telescopeInfoP; // TELESCOPE_INFO
+	private INDINumberElement telescopeApertureE ; // TELESCOPE_APERTURE
+	private INDINumberElement telescopeFocalLengthE ; // TELESCOPE_FOCAL_LENGTH 	
+	private INDINumberElement guiderApertureE ; // GUIDER_APERTURE
+	private INDINumberElement guiderFocalLengthE ; // GUIDER_FOCAL_LENGTH
+	
 	/**
 	 * On German equatorial mounts, a given celestial position can be pointed in
 	 * two ways. The counter-weight is generally down and the telescope up. -
@@ -143,6 +157,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		linkStatusP = new INDILightProperty(this, "link_status", "Link status", "Main Control", PropertyStates.IDLE);
 		linkStatusE = new INDILightElement(linkStatusP, "USB/Serial", LightStates.ALERT);
 
+		
 		geographicCoordP = new INDINumberProperty(this, "GEOGRAPHIC_COORD", "Scope Location", "Scope Location",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // GEOGRAPHIC_COORD
 		geographicCoordLatE = new INDINumberElement(geographicCoordP, "LAT", "Lat (dd:mm:ss)", 0., -90, 90, 0.,
@@ -153,62 +168,74 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				"%g");
 		addProperty(geographicCoordP);
 
+		
 		timeLstP = new INDINumberProperty(this, "TIME_LST", "Local sidereal time", "Scope Location",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RO);
 		lstE = new INDINumberElement(timeLstP, "LST", "Local sidereal time", 0, 0, 24, 0, "%010.6m");
 		addProperty(timeLstP);
 
+		
 		eqCoordP = new INDINumberProperty(this, "EQUATORIAL_EOD_COORD", "Eq. Coordinates", "Main Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // EQUATORIAL_EOD_COORD
 		eqCoordRAE = new INDINumberElement(eqCoordP, "RA", "RA (hh:mm:ss)", 0., 0, 24, 0, "%010.6m"); // RA
 		eqCoordDEE = new INDINumberElement(eqCoordP, "DEC", "DEC (dd:mm:ss)", 0., -180, 180, 0, "%010.6m"); // DEC
 
+		
 		sideP = new INDISwitchProperty(this, "TELESCOPE_SIDE", "Telescope side", "Main Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.ONE_OF_MANY); // TELESCOPE_MOTION_WE
 		sideEastE = new INDISwitchElement(sideP, "WEST", "West", Constants.SwitchStatus.OFF);
 		sideWestE = new INDISwitchElement(sideP, "EAST", "East", Constants.SwitchStatus.ON);
 
+		
 		onCoordSetP = new INDISwitchProperty(this, "ON_COORD_SET", "On Set", "Main Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.ONE_OF_MANY); // ON_COORD_SET
 		onCoordSetSlewE = new INDISwitchElement(onCoordSetP, "SLEW", "Slew", Constants.SwitchStatus.OFF); // SLEW
 		onCoordSetTrackE = new INDISwitchElement(onCoordSetP, "TRACK", "Track", Constants.SwitchStatus.OFF); // TRACK
 		onCoordSetSyncE = new INDISwitchElement(onCoordSetP, "SYNC", "Sync", Constants.SwitchStatus.ON); // SYNC
 
-		// enableAxisP = new INDISwitchProperty(this, "ENABLE_AXIS",
-		// "Enable axis", "Main Control",
-		// Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW,
-		// Constants.SwitchRules.ANY_OF_MANY);
-		// enableDecE = new INDISwitchElement(enableAxisP, "DEC", "Dec",
-		// Constants.SwitchStatus.ON);
-		// enableRaE = new INDISwitchElement(enableAxisP, "RA", "Ra",
-		// Constants.SwitchStatus.ON);
-		// // addProperty(enableAxis);
-
+		
 		telescopeMotionNSP = new INDISwitchProperty(this, "TELESCOPE_MOTION_NS", "North/South", "Motion Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.AT_MOST_ONE); // TELESCOPE_MOTION_NS
 		motionNE = new INDISwitchElement(telescopeMotionNSP, "MOTION_NORTH", "North", Constants.SwitchStatus.OFF); // MOTION_NORTH
 		motionSE = new INDISwitchElement(telescopeMotionNSP, "MOTION_SOUTH", "South", Constants.SwitchStatus.OFF); // MOTION_SOUTH
 
+		
 		telescopeMotionWEP = new INDISwitchProperty(this, "TELESCOPE_MOTION_WE", "West/East", "Motion Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.AT_MOST_ONE); // TELESCOPE_MOTION_WE
 		motionWE = new INDISwitchElement(telescopeMotionWEP, "MOTION_WEST", "West", Constants.SwitchStatus.OFF); // MOTION_WEST
 		motionEE = new INDISwitchElement(telescopeMotionWEP, "MOTION_EAST", "East", Constants.SwitchStatus.OFF); // MOTION_EAST
 
+		
 		abortMotionP = new INDISwitchProperty(this, "TELESCOPE_ABORT_MOTION", "Abort Motion", "Motion Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.AT_MOST_ONE); // TELESCOPE_ABORT_MOTION
 		abortMotionE = new INDISwitchElement(abortMotionP, "ABORT_MOTION", "Abort", Constants.SwitchStatus.OFF); // ABORT_MOTION
 
+		
 		motionRateP = new INDINumberProperty(this, "TELESCOPE_MOTION_RATE", "Motion rate", "Motion Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
 		motionRateE = new INDINumberElement(motionRateP, "MOTION_RATE", "Motion rate (arcmin/s)", MAX_SPEED*SIDERAL_RATE, 0., MAX_SPEED*SIDERAL_RATE, 0,
 				"%7.2f");
 		motionSpeed = (float) (motionRateE.getValue() / SIDERAL_RATE);
-
-		// commandP = new INDITextProperty(this, "custom_command",
-		// "Custom command", "Advanced",
-		// Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
-		// commandE = new INDITextElement(commandP, "command", "");
-
+		
+		
+		telescopeInfoP = INDINumberProperty.createSaveableNumberProperty(this, "TELESCOPE_INFO", "Telescope info", "Info",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // TELESCOPE_INFO
+		telescopeApertureE = new INDINumberElement(telescopeInfoP, "TELESCOPE_APERTURE", "Telescope aperture (mm)", 203, 1, 10000, 0.,"%7.2f"); // TELESCOPE_APERTURE
+		telescopeFocalLengthE  = new INDINumberElement(telescopeInfoP, "TELESCOPE_FOCAL_LENGTH 	", "Telescope focal length (mm)", 1000, 1, 10000, 0.,"%7.2f"); // TELESCOPE_FOCAL_LENGTH 	
+		guiderApertureE = new INDINumberElement(telescopeInfoP, "GUIDER_APERTURE", "Guider aperture (mm)", 50, 1, 10000, 0.,"%7.2f"); // GUIDER_APERTURE
+		guiderFocalLengthE = new INDINumberElement(telescopeInfoP, "GUIDER_FOCAL_LENGTH", "Guider focal lenth (mm)", 162, 1, 10000, 0.,"%7.2f"); // GUIDER_FOCAL_LENGTH
+		addProperty(telescopeInfoP);
+		
+		
+		timedGuideNSP = new INDINumberProperty(this, "TELESCOPE_TIMED_GUIDE_NS", "Guide pulse N/S", "Motion Control",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // TELESCOPE_TIMED_GUIDE_NS
+		timedGuideNE = new INDINumberElement(timedGuideNSP, "TIMED_GUIDE_N", "North (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_N
+		timedGuideSE = new INDINumberElement(timedGuideNSP, "TIMED_GUIDE_S", "South (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_S
+		timedGuideWEP = new INDINumberProperty(this, "TELESCOPE_TIMED_GUIDE_WE", "Guide pulse W/E", "Motion Control",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // TELESCOPE_TIMED_GUIDE_WE
+		timedGuideWE = new INDINumberElement(timedGuideWEP, "TIMED_GUIDE_W", "West (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_W
+		timedGuideEE = new INDINumberElement(timedGuideWEP, "TIMED_GUIDE_E", "East (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_E
+		
 		// --- Remaining initializations ---
 
 		lastStatusMessage = new StatusMessage();
@@ -359,6 +386,195 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 			} catch (INDIException e) {
 				e.printStackTrace();
 			}
+		}
+		
+		// --- Telescope info ---
+		if (property == telescopeInfoP) {
+			for (int i = 0; i < elementsAndValues.length; i++) {
+				INDINumberElement el = elementsAndValues[i].getElement();
+				double val = elementsAndValues[i].getValue();
+				el.setValue(val);
+				telescopeInfoP.setState(PropertyStates.OK);
+			}
+			try {
+				updateProperty(telescopeInfoP);
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		// --- Guide ---
+		if (property == timedGuideNSP) {
+			double val = elementsAndValues[0].getValue();
+			INDINumberElement el = elementsAndValues[0].getElement();
+			if(val<=0.){
+				if(elementsAndValues.length>=2){
+					val = elementsAndValues[1].getValue();
+					el = elementsAndValues[1].getElement();
+				}else{
+					timedGuideNSP.setState(PropertyStates.ALERT);
+					try {
+						updateProperty(timedGuideNSP,"0ms pulse error");
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+					return;
+				}
+			}
+			if(val<=0.){
+				timedGuideNSP.setState(PropertyStates.ALERT);
+				try {
+					updateProperty(timedGuideNSP,"0ms pulse error");
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				return;
+			}
+			
+			if(el==timedGuideNE){
+				timedGuideNSP.setState(PropertyStates.BUSY);
+				motionNE.setValue(SwitchStatus.ON);
+				try {
+					updateProperty(timedGuideNSP);
+					updateProperty(telescopeMotionNSP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+				sendCommand();
+				TimerTask task = new TimerTask() {					
+					@Override
+					public void run() {
+						timedGuideNSP.setState(PropertyStates.OK);
+						motionNE.setValue(SwitchStatus.OFF);
+						try {
+							updateProperty(timedGuideNSP);
+							updateProperty(telescopeMotionNSP);
+						} catch (INDIException e) {
+							e.printStackTrace();
+						}
+						command.setSpeedDE(0);
+						sendCommand();
+					}
+				};
+				Timer timer = new Timer();
+				timer.schedule(task, (long)val);
+			}			
+			if(el==timedGuideSE){
+				timedGuideNSP.setState(PropertyStates.BUSY);				
+				motionSE.setValue(SwitchStatus.ON);
+				try {
+					updateProperty(timedGuideNSP);
+					updateProperty(telescopeMotionNSP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+				sendCommand();
+				TimerTask task = new TimerTask() {					
+					@Override
+					public void run() {
+						timedGuideNSP.setState(PropertyStates.OK);	
+						motionSE.setValue(SwitchStatus.OFF);
+						try {
+							updateProperty(timedGuideNSP);
+							updateProperty(telescopeMotionNSP);
+						} catch (INDIException e) {
+							e.printStackTrace();
+						}
+						command.setSpeedDE(0);
+						sendCommand();
+					}
+				};
+				Timer timer = new Timer();
+				timer.schedule(task, (long)val);
+			}			
+		}
+		if (property == timedGuideWEP) {
+			double val = elementsAndValues[0].getValue();
+			INDINumberElement el = elementsAndValues[0].getElement();
+			if(val<=0.){
+				if(elementsAndValues.length>=2){
+					val = elementsAndValues[1].getValue();
+					el = elementsAndValues[1].getElement();
+				}else{
+					timedGuideWEP.setState(PropertyStates.ALERT);
+					try {
+						updateProperty(timedGuideWEP,"0ms pulse error");
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+					return;
+				}
+			}
+			if(val<=0.){
+				timedGuideWEP.setState(PropertyStates.ALERT);
+				try {
+					updateProperty(timedGuideWEP,"0ms pulse error");
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				return;
+			}
+			
+			if(el==timedGuideWE){
+				timedGuideWEP.setState(PropertyStates.BUSY);
+				motionWE.setValue(SwitchStatus.ON);
+				try {
+					updateProperty(timedGuideWEP);
+					updateProperty(telescopeMotionWEP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
+				sendCommand();
+				TimerTask task = new TimerTask() {					
+					@Override
+					public void run() {
+						timedGuideWEP.setState(PropertyStates.OK);
+						motionWE.setValue(SwitchStatus.OFF);
+						try {
+							updateProperty(timedGuideWEP);
+							updateProperty(telescopeMotionWEP);
+						} catch (INDIException e) {
+							e.printStackTrace();
+						}
+						command.setSpeedDE(0);
+						sendCommand();
+					}
+				};
+				Timer timer = new Timer();
+				timer.schedule(task, (long)val);
+			}			
+			if(el==timedGuideEE){
+				timedGuideWEP.setState(PropertyStates.BUSY);				
+				motionEE.setValue(SwitchStatus.ON);
+				try {
+					updateProperty(timedGuideWEP);
+					updateProperty(telescopeMotionWEP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
+				sendCommand();
+				TimerTask task = new TimerTask() {					
+					@Override
+					public void run() {
+						timedGuideWEP.setState(PropertyStates.OK);	
+						motionEE.setValue(SwitchStatus.OFF);
+						try {
+							updateProperty(timedGuideWEP);
+							updateProperty(telescopeMotionWEP);
+						} catch (INDIException e) {
+							e.printStackTrace();
+						}
+						command.setSpeedDE(0);
+						sendCommand();
+					}
+				};
+				Timer timer = new Timer();
+				timer.schedule(task, (long)val);
+			}			
 		}
 
 	}
@@ -618,6 +834,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		addProperty(telescopeMotionWEP);
 		addProperty(abortMotionP);
 		addProperty(motionRateP);
+		addProperty(timedGuideNSP);
+		addProperty(timedGuideWEP);
 
 		syncCoordHA = getSiderealTime();
 		syncStepHA = 0;
@@ -649,6 +867,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		removeProperty(telescopeMotionWEP);
 		removeProperty(abortMotionP);
 		removeProperty(motionRateP);
+		removeProperty(timedGuideNSP);
+		removeProperty(timedGuideWEP);
 	}
 
 	/**
@@ -659,12 +879,13 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	public double getSiderealTime() {
 		long now = (new Date()).getTime();
 		double j2000 = 10957.5 * 3600 * 24 * 1e3;
-		double D = (now - j2000) / 86400e3;
+		double D = (now - j2000) / 86400.0e3;
 		double GMST = 18.697374558 + 24.06570982441908 * D;
 		double lon = geographicCoordLongE.getValue();
 		lon = lon / 360 * 24;
 		double LST = GMST + lon;
 		LST = LST % 24;
+		if(LST<0){LST+=24;} // error with years before 2000
 		return LST;
 	}
 
