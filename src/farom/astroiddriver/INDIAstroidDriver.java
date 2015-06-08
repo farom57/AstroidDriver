@@ -242,7 +242,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		
 		servoP = new INDINumberProperty(this, "SERVO", "Servo", "Motion Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
-		currentTicksE = new INDINumberElement(servoP, "CURRENT_TICKS", "Current ticks", 0, 0., 4000, 1,"%4.0f");
+		currentTicksE = new INDINumberElement(servoP, "CURRENT_TICKS", "Current ticks", 0, 0., 3800, 1,"%4.0f");
 
 		
 		// --- Remaining initializations ---
@@ -318,6 +318,28 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	public void processNewNumberValue(INDINumberProperty property, Date date,
 			INDINumberElementAndValue[] elementsAndValues) {
 
+		// Avoid crash when empty property
+		if(elementsAndValues == null){			
+			try {
+				printMessage("elementsAndValues == null");
+				property.setState(PropertyStates.ALERT);
+				updateProperty(property, "Empty property: you may have enter an invalid value");
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+		if(elementsAndValues.length <= 0){
+			try {
+				printMessage("elementsAndValues <= 0");
+				property.setState(PropertyStates.ALERT);
+				updateProperty(property, "Empty property: you may have enter an invalid value");
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+		
 		// --- Geographic coordinates ---
 		if (property == geographicCoordP) {
 			for (int i = 0; i < elementsAndValues.length; i++) {
@@ -622,6 +644,29 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	@Override
 	public void processNewSwitchValue(INDISwitchProperty property, Date date,
 			INDISwitchElementAndValue[] elementsAndValues) {
+		
+		// Avoid crash when empty property
+		if(elementsAndValues == null){			
+			try {
+				printMessage("elementsAndValues == null");
+				property.setState(PropertyStates.ALERT);
+				updateProperty(property, "Empty property: you may have enter an invalid value");
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+		if(elementsAndValues.length <= 0){
+			try {
+				printMessage("elementsAndValues <= 0");
+				property.setState(PropertyStates.ALERT);
+				updateProperty(property, "Empty property: you may have enter an invalid value");
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+		
 
 		if (property == onCoordSetP) {
 			onCoordSetP.setState(PropertyStates.IDLE);
@@ -837,7 +882,29 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	 */
 	@Override
 	public void processNewTextValue(INDITextProperty property, Date date, INDITextElementAndValue[] elementsAndValues) {
-
+		// Avoid crash when empty property
+		if(elementsAndValues == null){			
+			try {
+				printMessage("elementsAndValues == null");
+				property.setState(PropertyStates.ALERT);
+				updateProperty(property, "Empty property: you may have enter an invalid value");
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+		if(elementsAndValues.length <= 0){
+			try {
+				printMessage("elementsAndValues <= 0");
+				property.setState(PropertyStates.ALERT);
+				updateProperty(property, "Empty property: you may have enter an invalid value");
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+		
+		// No properties
 	}
 
 	/*
@@ -947,7 +1014,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		eqCoordRAE.setValue(RA);
 		eqCoordDEE.setValue(DE);
 		currentTicksE.setValue((double)lastStatusMessage.getTicks());
-
+		command.setTicks(lastStatusMessage.getTicks());
+		
 		gotoUpdate();
 
 		try {
