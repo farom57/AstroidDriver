@@ -94,6 +94,10 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private INDINumberElement guiderApertureE ; // GUIDER_APERTURE
 	private INDINumberElement guiderFocalLengthE ; // GUIDER_FOCAL_LENGTH
 	
+	private INDINumberProperty servoP; // SERVO
+	private INDINumberElement currentTicksE ; // CURRENT_TICKS
+
+	
 	/**
 	 * On German equatorial mounts, a given celestial position can be pointed in
 	 * two ways. The counter-weight is generally down and the telescope up. -
@@ -235,6 +239,11 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // TELESCOPE_TIMED_GUIDE_WE
 		timedGuideWE = new INDINumberElement(timedGuideWEP, "TIMED_GUIDE_W", "West (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_W
 		timedGuideEE = new INDINumberElement(timedGuideWEP, "TIMED_GUIDE_E", "East (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_E
+		
+		servoP = new INDINumberProperty(this, "SERVO", "Servo", "Motion Control",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
+		currentTicksE = new INDINumberElement(servoP, "CURRENT_TICKS", "Current ticks", 0, 0., 4000, 1,"%4.0f");
+
 		
 		// --- Remaining initializations ---
 
@@ -403,6 +412,24 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 			}
 		}
 		
+		// --- Telescope info ---
+		if (property == servoP) {
+			for (int i = 0; i < elementsAndValues.length; i++) {
+				INDINumberElement el = elementsAndValues[i].getElement();
+				if (el == currentTicksE) {
+					double val = elementsAndValues[i].getValue();
+					command.setTicks((int) Math.round(val));
+					sendCommand();
+					servoP.setState(PropertyStates.OK);
+				}
+			}
+			try {
+				updateProperty(servoP);
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+		}
+		
 		// --- Guide ---
 		if (property == timedGuideNSP) {
 			double val = elementsAndValues[0].getValue();
@@ -539,7 +566,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 						} catch (INDIException e) {
 							e.printStackTrace();
 						}
-						command.setSpeedDE(0);
+						command.setSpeedRA(0);
 						sendCommand();
 					}
 				};
@@ -568,7 +595,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 						} catch (INDIException e) {
 							e.printStackTrace();
 						}
-						command.setSpeedDE(0);
+						command.setSpeedRA(0);
 						sendCommand();
 					}
 				};
@@ -576,6 +603,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				timer.schedule(task, (long)val);
 			}			
 		}
+		
+		
 
 	}
 
@@ -836,6 +865,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		addProperty(motionRateP);
 		addProperty(timedGuideNSP);
 		addProperty(timedGuideWEP);
+		addProperty(servoP);
 
 		syncCoordHA = getSiderealTime();
 		syncStepHA = 0;
@@ -916,11 +946,13 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 
 		eqCoordRAE.setValue(RA);
 		eqCoordDEE.setValue(DE);
+		currentTicksE.setValue((double)lastStatusMessage.getTicks());
 
 		gotoUpdate();
 
 		try {
 			updateProperty(eqCoordP);
+			updateProperty(servoP);
 		} catch (INDIException e) {
 			e.printStackTrace();
 		}

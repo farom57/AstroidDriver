@@ -9,7 +9,7 @@ import java.util.Date;
  * @author farom
  */
 public class StatusMessage{
-	public static final int MESSAGE_SIZE = 29;
+	public static final int MESSAGE_SIZE = 31;
 	protected long time;
 	protected int msCount;
 	protected int stepHA;
@@ -18,6 +18,7 @@ public class StatusMessage{
 	protected float uStepDE;
 	protected float moveSpeedRA;
 	protected float moveSpeedDE;
+	protected int ticks;
     
 	/**
 	 * Create the StatusMessage from the buffer
@@ -32,6 +33,27 @@ public class StatusMessage{
         uStepDE = ByteBuffer.wrap(buffer,16,4).order(ByteOrder.BIG_ENDIAN).getFloat();
         moveSpeedRA = ByteBuffer.wrap(buffer,20,4).order(ByteOrder.BIG_ENDIAN).getFloat();
         moveSpeedDE = ByteBuffer.wrap(buffer,24,4).order(ByteOrder.BIG_ENDIAN).getFloat();
+        ticks = parseInt(buffer[28],buffer[29]);
+	}
+	
+	/**
+	 * Form a positive integer from two bytes
+	 * @param high most significant byte
+	 * @param low least significant byte
+	 */
+	private int parseInt(byte high, byte low){
+		int result;
+		if(high>=0){
+			result = high * 256;
+		}else{
+			result = (high+256) * 256;
+		}
+		if(low>=0){
+			result += low;
+		}else{
+			result += low + 256;
+		}
+		return result;
 	}
 	
 	/**
@@ -60,11 +82,19 @@ public class StatusMessage{
         uStepDE = 0;
         moveSpeedRA=0;
         moveSpeedDE=0;
+        ticks = 0;
 	}
 	
 	@Override
 	public String toString(){
-		return "recieved: "+(new Date(time))+"\nmsCount: "+msCount+"\nstepRA: "+stepHA+"\nstepDE: "+stepDE+"\nuStepRA: "+uStepHA+"\nuStepDE: "+uStepDE+"\nmoveSpeedRA: "+moveSpeedRA+"\nmoveSpeedDE: "+moveSpeedDE+"\n";			
+		return "recieved: "+(new Date(time))+"\nmsCount: "+msCount+"\nstepRA: "+stepHA+"\nstepDE: "+stepDE+"\nuStepRA: "+uStepHA+"\nuStepDE: "+uStepDE+"\nmoveSpeedRA: "+moveSpeedRA+"\nmoveSpeedDE: "+moveSpeedDE+"\nticks:"+ticks+"\n";			
+	}
+
+	/**
+	 * @return the ticks
+	 */
+	public int getTicks() {
+		return ticks;
 	}
 
 	/**

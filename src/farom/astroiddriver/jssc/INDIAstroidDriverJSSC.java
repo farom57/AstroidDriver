@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Date;
 
+import farom.astroiddriver.CmdMessage;
 import farom.astroiddriver.INDIAstroidDriver;
 import farom.astroiddriver.StatusMessage;
 import jssc.SerialPort;
@@ -121,6 +122,12 @@ public class INDIAstroidDriverJSSC extends INDIAstroidDriver implements SerialPo
 			if (!serialPort.writeBytes(command.getBytes())) {
 				printMessage("error while sending data to the device");
 			}
+			System.out.println("Sent command:");
+			for (int i = 0; i < CmdMessage.MESSAGE_SIZE; i++) {
+				byte[] array = command.getBytes();
+				System.out.printf("%02X ", array[i]);
+			}
+			System.out.println("");
 		} catch (SerialPortException e) {
 			printMessage("error while sending data to the device");
 			e.printStackTrace();
@@ -142,7 +149,17 @@ public class INDIAstroidDriverJSSC extends INDIAstroidDriver implements SerialPo
 					serialPort.readBytes(event.getEventValue() - StatusMessage.MESSAGE_SIZE);
 
 					if (StatusMessage.verify(buffer)) {
+						
 						lastStatusMessage = new StatusMessage(buffer);
+//						System.out.println("valid message (" + event.getEventValue() + "/"
+//								+ StatusMessage.MESSAGE_SIZE + " bytes):");
+//						for (int i = 0; i < StatusMessage.MESSAGE_SIZE; i++) {
+//							System.out.printf("%02X ", buffer[i]);
+//						}
+//						System.out.println("");
+//						System.out.println(lastStatusMessage);
+						
+						
 						updateStatus();
 					} else {
 						System.out.println("invalid message (" + event.getEventValue() + "/"

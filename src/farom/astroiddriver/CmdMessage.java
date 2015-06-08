@@ -4,18 +4,21 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public class CmdMessage {
-	public static final int MESSAGE_SIZE = 9;
+	public static final int MESSAGE_SIZE = 11;
 	protected float speedRA;
 	protected float speedDE;
+	protected int	ticks;
 	
-	public CmdMessage(float moveSpeedRA,float moveSpeedDE) {
+	public CmdMessage(float moveSpeedRA,float moveSpeedDE, int ticksServo) {
 		speedRA=moveSpeedRA;
 		speedDE=moveSpeedDE;
+		ticks=ticksServo;
 	}
 	
 	public CmdMessage() {
 		speedRA=0;
 		speedDE=0;
+		ticks=0;
 	}
 	
 	public byte[] getBytes(){
@@ -23,6 +26,9 @@ public class CmdMessage {
 		buffer.order(ByteOrder.BIG_ENDIAN);
 		buffer.putFloat(0, speedRA);
 		buffer.putFloat(4, speedDE);
+		buffer.put(8,(byte) ((ticks/256) & 0xFF));
+		buffer.put(9,(byte) (ticks & 0xFF));
+		
 		
 		byte[] array = buffer.array();
 		int sum = 0;
@@ -65,6 +71,20 @@ public class CmdMessage {
 	 */
 	public void setSpeedDE(float speedDE) {
 		this.speedDE = speedDE;
+	}
+
+	/**
+	 * @return the ticks
+	 */
+	public int getTicks() {
+		return ticks;
+	}
+
+	/**
+	 * @param ticks the ticks to set
+	 */
+	public void setTicks(int ticks) {
+		this.ticks = ticks;
 	}
 
 }
