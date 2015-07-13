@@ -737,7 +737,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					double val = elementsAndValues[i].getValue();
 					if (el == focusTimerE) {
 						el.setValue(val);
-						moveFocus(val, (int) (focusSpeedE.getValue() * (focusOutwardE.getValue()==SwitchStatus.ON ? 1 : -1)));
+						moveFocus(val, (int) (focusSpeedE.getValue() * (focusOutwardE.getValue()==SwitchStatus.ON ? 1 : -1)),focusTimerP);
 					}
 				}
 				try {
@@ -756,7 +756,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 						relFocusPosP.setState(PropertyStates.OK);
 						double duration = val / focusSpeedE.getValue();
 						focusTimerE.setValue(Math.abs(duration));
-						moveFocus(Math.abs(duration), (int) (focusSpeedE.getValue() * (duration > 0 ? 1 : -1)));
+						moveFocus(Math.abs(duration), (int) (focusSpeedE.getValue() * (duration > 0 ? 1 : -1)),relFocusPosP);
 					}
 				}
 				try {
@@ -774,7 +774,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					if (el == absFocusPosE) {					
 						double duration = (val-el.getValue()) / focusSpeedE.getValue();
 						focusTimerE.setValue(Math.abs(duration));
-						moveFocus(Math.abs(duration), (int) (focusSpeedE.getValue() * (duration > 0 ? 1 : -1)));
+						moveFocus(Math.abs(duration), (int) (focusSpeedE.getValue() * (duration > 0 ? 1 : -1)),absFocusPosP);
 					}
 				}
 				try {
@@ -1436,16 +1436,16 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	 * @param time duration of the move in s
 	 * @param speed negative or positive speed
 	 */
-	private void moveFocus(final double duration, final double speed){
+	private void moveFocus(final double duration, final double speed, final INDIProperty prop){
 		updateTicks((int) (neutralTicksE.getValue() + speed));
 		TimerTask task = new TimerTask(){
 			@Override
 			public void run() {
 				updateTicks(CmdMessage.TICKS_OFF);
-				focusTimerP.setState(PropertyStates.OK);
+				prop.setState(PropertyStates.OK);
 				absFocusPosE.setValue(absFocusPosE.getValue()+speed*duration);
 				try {
-					updateProperty(focusTimerP);
+					updateProperty(prop);
 					updateProperty(absFocusPosP);
 				} catch (INDIException e) {
 					e.printStackTrace();
@@ -1455,7 +1455,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		Timer timer = new Timer();
 		timer.schedule(task, (long) (duration*1000));
 		
-		focusTimerP.setState(PropertyStates.IDLE);
+		prop.setState(PropertyStates.IDLE);
 		try {
 			updateProperty(focusTimerP);
 		} catch (INDIException e) {
