@@ -5,6 +5,10 @@ import java.nio.ByteOrder;
 
 public class CmdMessage {
 	public static final int MESSAGE_SIZE = 11;
+	public static final int TICKS_OFF = 0;
+	public static final int TICKS_FOCUS = 1;
+	public static final int TICKS_EXPOSE = 2;
+	public static final int TICKS_EXPOSE_FOCUS = 3;
 	protected float speedRA;
 	protected float speedDE;
 	protected int	ticks;

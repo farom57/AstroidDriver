@@ -94,8 +94,35 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private INDINumberElement guiderApertureE ; // GUIDER_APERTURE
 	private INDINumberElement guiderFocalLengthE ; // GUIDER_FOCAL_LENGTH
 	
+	private INDISwitchProperty focuserIntervalometerP; // FOCUSER_INTERVALOMETER
+	private INDISwitchElement focuserE; // FOCUSER
+	private INDISwitchElement intervalometerE; // INTERVALOMETER
+	
+	private INDINumberProperty intervalometerSettingsP;
+	private INDINumberElement exposureTimeE;
+	private INDINumberElement mirrorRaisingTimeE;
+	private INDINumberElement delayTimeE;
+	private INDINumberElement exposureNumberE;
+	
+	private INDINumberProperty focusSpeedP; // FOCUS_SPEED
+	private INDINumberElement focusSpeedE ; // FOCUS_SPEED_VALUE
+	
+	private INDINumberProperty focusTimerP; // FOCUS_TIMER
+	private INDINumberElement focusTimerE ; // FOCUS_TIMER_VALUE
+	
+	private INDISwitchProperty focusMotionP; // FOCUS_MOTION
+	private INDISwitchElement focusInwardE; // FOCUS_INWARD
+	private INDISwitchElement focusOutwardE; // FOCUS_OUTWARD
+	
+	private INDINumberProperty relFocusPosP; // REL_FOCUS_POSITION
+	private INDINumberElement relFocusPosE ; // FOCUS_RELATIVE_POSITION
+	
+	private INDINumberProperty absFocusPosP; // ABS_FOCUS_POSITION
+	private INDINumberElement absFocusPosE ; // FOCUS_ABSOLUTE_POSITION
+	
 	private INDINumberProperty servoP; // SERVO
 	private INDINumberElement currentTicksE ; // CURRENT_TICKS
+	private INDINumberElement neutralTicksE ; // CURRENT_TICKS
 
 	
 	/**
@@ -139,6 +166,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private double gotoTargetDE;
 	private boolean gotoActive;
 	private float motionSpeed;
+	
 
 	/**
 	 * Constructs a INDIAstroidDriver with a particular
@@ -240,10 +268,43 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		timedGuideWE = new INDINumberElement(timedGuideWEP, "TIMED_GUIDE_W", "West (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_W
 		timedGuideEE = new INDINumberElement(timedGuideWEP, "TIMED_GUIDE_E", "East (ms)", 0, 0., 5000, 0,"%4.0f"); // TIMED_GUIDE_E
 		
-		servoP = new INDINumberProperty(this, "SERVO", "Servo", "Motion Control",
+		servoP = new INDINumberProperty(this, "SERVO", "Servo", "Focuser / intervalometer",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
 		currentTicksE = new INDINumberElement(servoP, "CURRENT_TICKS", "Current ticks", 0, 0., 3800, 1,"%4.0f");
+		neutralTicksE = new INDINumberElement(servoP, "NEUTRAL_TICKS", "Neutral ticks", 2000, 0., 3800, 1,"%4.0f");
 
+		focuserIntervalometerP = new INDISwitchProperty(this, "FOCUSER_INTERVALOMETER", "Auxiliary port mode", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.AT_MOST_ONE); // FOCUSER_INTERVALOMETER
+		focuserE = new INDISwitchElement(focuserIntervalometerP, "FOCUSER", "Focuser", Constants.SwitchStatus.OFF); // FOCUSER
+		intervalometerE = new INDISwitchElement(focuserIntervalometerP, "INTERVALOMETER", "Intervalometer", Constants.SwitchStatus.OFF); // INTERVALOMETER
+		
+		intervalometerSettingsP = new INDINumberProperty(this, "INTERVALOMETER_SETTINGS", "Intervalometer settings", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
+		exposureTimeE = new INDINumberElement(intervalometerSettingsP, "EXPOSURE_TIME", "Exposure time", 30, 0.001, 3600, 0,"%7.2f");
+		mirrorRaisingTimeE = new INDINumberElement(intervalometerSettingsP, "MIRROR_RAISING_TIME", "Mirror raising time", 0, 0, 3600, 0,"%7.2f");
+		delayTimeE = new INDINumberElement(intervalometerSettingsP, "DELAY_TIME", "Delay", 1, 0.001, 3600, 0,"%7.2f");
+		exposureNumberE = new INDINumberElement(intervalometerSettingsP, "EXPOSURE_NUMBER", "Exposure number", 999, 0, 999999, 1,"%6.0f");
+		
+		focusSpeedP = new INDINumberProperty(this, "FOCUS_SPEED", "Focus speed", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // FOCUS_SPEED
+		focusSpeedE = new INDINumberElement(focusSpeedP, "FOCUS_SPEED_VALUE", "Speed", 100, -2000, 2000, 1,"%4.0f"); // FOCUS_SPEED_VALUE
+		
+		focusTimerP = new INDINumberProperty(this, "FOCUS_TIMER", "Focus timer", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // FOCUS_TIMER
+		focusTimerE = new INDINumberElement(focusTimerP, "FOCUS_TIMER_VALUE", "Duration", 1, 0, 60, 0,"%5.2f"); // FOCUS_TIMER_VALUE
+
+		focusMotionP = new INDISwitchProperty(this, "FOCUS_MOTION", "Focus motiont", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.ONE_OF_MANY); // FOCUS_MOTION
+		focusInwardE = new INDISwitchElement(focusMotionP, "FOCUS_INWARD", "Inward", Constants.SwitchStatus.ON); // FOCUS_INWARD
+		focusOutwardE = new INDISwitchElement(focusMotionP, "FOCUS_OUTWARD", "Outward", Constants.SwitchStatus.OFF); // FOCUS_OUTWARD
+		
+		relFocusPosP = new INDINumberProperty(this, "REL_FOCUS_POSITION", "Relative position", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // REL_FOCUS_POSITION
+		relFocusPosE = new INDINumberElement(relFocusPosP, "FOCUS_RELATIVE_POSITION", "Rel position", 0, -1e9, 1e9, 0,"%7.2f"); // FOCUS_RELATIVE_POSITION
+		
+		absFocusPosP = new INDINumberProperty(this, "ABS_FOCUS_POSITION", "Absolute position", "Focuser / intervalometer",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // ABS_FOCUS_POSITION
+		absFocusPosE = new INDINumberElement(absFocusPosP, "FOCUS_ABSOLUTE_POSITION", "Abs position", 0, -1e9, 1e9, 0,"%7.2f"); // FOCUS_ABSOLUTE_POSITION
 		
 		// --- Remaining initializations ---
 
@@ -274,6 +335,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		};
 		Timer timer = new Timer();
 		timer.scheduleAtFixedRate(task, 0, 1000);
+
 
 	}
 
@@ -318,149 +380,186 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	public void processNewNumberValue(INDINumberProperty property, Date date,
 			INDINumberElementAndValue[] elementsAndValues) {
 
-		// Avoid crash when empty property
-		if(elementsAndValues == null){			
-			try {
-				printMessage("elementsAndValues == null");
-				property.setState(PropertyStates.ALERT);
-				updateProperty(property, "Empty property: you may have enter an invalid value");
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-			return;
-		}
-		if(elementsAndValues.length <= 0){
-			try {
-				printMessage("elementsAndValues <= 0");
-				property.setState(PropertyStates.ALERT);
-				updateProperty(property, "Empty property: you may have enter an invalid value");
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-			return;
-		}
 		
-		// --- Geographic coordinates ---
-		if (property == geographicCoordP) {
-			for (int i = 0; i < elementsAndValues.length; i++) {
-				INDINumberElement el = elementsAndValues[i].getElement();
-				double val = elementsAndValues[i].getValue();
-				if (el == geographicCoordLatE) {
-					geographicCoordLatE.setValue(val);
-				}
-				if (el == geographicCoordLongE) {
-					geographicCoordLongE.setValue(val);
-				}
-				if (el == geographicCoordElevE) {
-					geographicCoordElevE.setValue(val);
-				}
-				geographicCoordP.setState(PropertyStates.OK);
-
-			}
-			try {
-				updateProperty(geographicCoordP);
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-		}
-
-		// --- Equatorial coordinates ---
-		if (property == eqCoordP) {
-			double newRA = 0;
-			double newDE = 0;
-			eqCoordP.setState(PropertyStates.BUSY);
-			for (int i = 0; i < elementsAndValues.length; i++) {
-				INDINumberElement el = elementsAndValues[i].getElement();
-				double val = elementsAndValues[i].getValue();
-				if (el == eqCoordDEE) {
-					newDE = mod360(val);
-				} else {
-					newRA = mod24(val);
-				}
-			}
-
-			if (onCoordSetSyncE.getValue() == SwitchStatus.ON) {
-				syncCoordinates(newRA, newDE);
-			} else {
-				gotoCoordinates(newRA, newDE);
-			}
-
-		}
-
-		// --- Motion rate ---
-		if (property == motionRateP) {
-			double val = elementsAndValues[0].getValue();
-			motionRateE.setValue(val);
-			motionSpeed = (float) (val / SIDERAL_RATE);
-
-			if (motionNE.getValue() == SwitchStatus.ON) {
-				command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1)
-						* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-				telescopeMotionNSP.setState(PropertyStates.OK);
-			} else if (motionSE.getValue() == SwitchStatus.ON) {
-				command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1)
-						* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-				telescopeMotionNSP.setState(PropertyStates.OK);
-			}
-			if (motionWE.getValue() == SwitchStatus.ON) {
-				command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
-				telescopeMotionWEP.setState(PropertyStates.OK);
-			} else if (motionEE.getValue() == SwitchStatus.ON) {
-				command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
-				telescopeMotionWEP.setState(PropertyStates.OK);
-			}
-			sendCommand();
-			motionRateP.setState(PropertyStates.OK);
-
-			try {
-				updateProperty(motionRateP);
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-		}
 		
-		// --- Telescope info ---
-		if (property == telescopeInfoP) {
-			for (int i = 0; i < elementsAndValues.length; i++) {
-				INDINumberElement el = elementsAndValues[i].getElement();
-				double val = elementsAndValues[i].getValue();
-				el.setValue(val);
-				telescopeInfoP.setState(PropertyStates.OK);
+		try{
+			// Avoid crash when empty property
+			if(elementsAndValues == null){			
+				try {
+					printMessage("elementsAndValues == null");
+					property.setState(PropertyStates.ALERT);
+					updateProperty(property, "Empty property: you may have enter an invalid value");
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				return;
 			}
-			try {
-				updateProperty(telescopeInfoP);
-			} catch (INDIException e) {
-				e.printStackTrace();
+			if(elementsAndValues.length <= 0){
+				try {
+					printMessage("elementsAndValues <= 0");
+					property.setState(PropertyStates.ALERT);
+					updateProperty(property, "Empty property: you may have enter an invalid value");
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				return;
 			}
-		}
-		
-		// --- Telescope info ---
-		if (property == servoP) {
-			for (int i = 0; i < elementsAndValues.length; i++) {
-				INDINumberElement el = elementsAndValues[i].getElement();
-				if (el == currentTicksE) {
+			// debug
+			//printMessage("Prop: "+property.getName()+"\n" + elementsAndValues.length + " element(s):\n 1) " + elementsAndValues[0].getElement().getNameAndValueAsString());
+			
+			
+			
+			
+			// --- Geographic coordinates ---
+			if (property == geographicCoordP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
 					double val = elementsAndValues[i].getValue();
-					command.setTicks((int) Math.round(val));
-					sendCommand();
-					servoP.setState(PropertyStates.OK);
+					if (el == geographicCoordLatE) {
+						geographicCoordLatE.setValue(val);
+					}
+					if (el == geographicCoordLongE) {
+						geographicCoordLongE.setValue(val);
+					}
+					if (el == geographicCoordElevE) {
+						geographicCoordElevE.setValue(val);
+					}
+					geographicCoordP.setState(PropertyStates.OK);
+	
+				}
+				try {
+					updateProperty(geographicCoordP);
+				} catch (INDIException e) {
+					e.printStackTrace();
 				}
 			}
-			try {
-				updateProperty(servoP);
-			} catch (INDIException e) {
-				e.printStackTrace();
+	
+			// --- Equatorial coordinates ---
+			if (property == eqCoordP) {
+				double newRA = 0;
+				double newDE = 0;
+				eqCoordP.setState(PropertyStates.BUSY);
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == eqCoordDEE) {
+						newDE = mod360(val);
+					} else {
+						newRA = mod24(val);
+					}
+				}
+	
+				if (onCoordSetSyncE.getValue() == SwitchStatus.ON) {
+					syncCoordinates(newRA, newDE);
+				} else {
+					gotoCoordinates(newRA, newDE);
+				}
+	
 			}
-		}
-		
-		// --- Guide ---
-		if (property == timedGuideNSP) {
-			double val = elementsAndValues[0].getValue();
-			INDINumberElement el = elementsAndValues[0].getElement();
-			if(val<=0.){
-				if(elementsAndValues.length>=2){
-					val = elementsAndValues[1].getValue();
-					el = elementsAndValues[1].getElement();
-				}else{
+	
+			// --- Motion rate ---
+			if (property == motionRateP) {
+				double val = elementsAndValues[0].getValue();
+				motionRateE.setValue(val);
+				motionSpeed = (float) (val / SIDERAL_RATE);
+	
+				if (motionNE.getValue() == SwitchStatus.ON) {
+					command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1)
+							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					telescopeMotionNSP.setState(PropertyStates.OK);
+				} else if (motionSE.getValue() == SwitchStatus.ON) {
+					command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1)
+							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					telescopeMotionNSP.setState(PropertyStates.OK);
+				}
+				if (motionWE.getValue() == SwitchStatus.ON) {
+					command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
+					telescopeMotionWEP.setState(PropertyStates.OK);
+				} else if (motionEE.getValue() == SwitchStatus.ON) {
+					command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
+					telescopeMotionWEP.setState(PropertyStates.OK);
+				}
+				sendCommand();
+				motionRateP.setState(PropertyStates.OK);
+	
+				try {
+					updateProperty(motionRateP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			// --- Telescope info ---
+			if (property == telescopeInfoP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					el.setValue(val);
+					telescopeInfoP.setState(PropertyStates.OK);
+				}
+				try {
+					updateProperty(telescopeInfoP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			// --- Servo ---
+			if (property == servoP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == neutralTicksE) {
+						el.setValue(val);
+						servoP.setState(PropertyStates.OK);
+					}
+				}
+				try {
+					updateProperty(servoP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			// --- Intervalometer ---
+			if (property == intervalometerSettingsP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					
+					
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					el.setValue(val);
+					
+					if(el == exposureNumberE){
+						resetIntervalometer();
+					}
+				}
+				try {
+					updateProperty(intervalometerSettingsP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			// --- Guide ---
+			if (property == timedGuideNSP) {
+				double val = elementsAndValues[0].getValue();
+				INDINumberElement el = elementsAndValues[0].getElement();
+				if(val<=0.){
+					if(elementsAndValues.length>=2){
+						val = elementsAndValues[1].getValue();
+						el = elementsAndValues[1].getElement();
+					}else{
+						timedGuideNSP.setState(PropertyStates.ALERT);
+						try {
+							updateProperty(timedGuideNSP,"0ms pulse error");
+						} catch (INDIException e) {
+							e.printStackTrace();
+						}
+						return;
+					}
+				}
+				if(val<=0.){
 					timedGuideNSP.setState(PropertyStates.ALERT);
 					try {
 						updateProperty(timedGuideNSP,"0ms pulse error");
@@ -469,84 +568,84 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					}
 					return;
 				}
+				
+				if(el==timedGuideNE){
+					timedGuideNSP.setState(PropertyStates.BUSY);
+					motionNE.setValue(SwitchStatus.ON);
+					try {
+						updateProperty(timedGuideNSP);
+						updateProperty(telescopeMotionNSP);
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+					command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					sendCommand();
+					TimerTask task = new TimerTask() {					
+						@Override
+						public void run() {
+							timedGuideNSP.setState(PropertyStates.OK);
+							motionNE.setValue(SwitchStatus.OFF);
+							try {
+								updateProperty(timedGuideNSP);
+								updateProperty(telescopeMotionNSP);
+							} catch (INDIException e) {
+								e.printStackTrace();
+							}
+							command.setSpeedDE(0);
+							sendCommand();
+						}
+					};
+					Timer timer = new Timer();
+					timer.schedule(task, (long)val);
+				}			
+				if(el==timedGuideSE){
+					timedGuideNSP.setState(PropertyStates.BUSY);				
+					motionSE.setValue(SwitchStatus.ON);
+					try {
+						updateProperty(timedGuideNSP);
+						updateProperty(telescopeMotionNSP);
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+					command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					sendCommand();
+					TimerTask task = new TimerTask() {					
+						@Override
+						public void run() {
+							timedGuideNSP.setState(PropertyStates.OK);	
+							motionSE.setValue(SwitchStatus.OFF);
+							try {
+								updateProperty(timedGuideNSP);
+								updateProperty(telescopeMotionNSP);
+							} catch (INDIException e) {
+								e.printStackTrace();
+							}
+							command.setSpeedDE(0);
+							sendCommand();
+						}
+					};
+					Timer timer = new Timer();
+					timer.schedule(task, (long)val);
+				}			
 			}
-			if(val<=0.){
-				timedGuideNSP.setState(PropertyStates.ALERT);
-				try {
-					updateProperty(timedGuideNSP,"0ms pulse error");
-				} catch (INDIException e) {
-					e.printStackTrace();
-				}
-				return;
-			}
-			
-			if(el==timedGuideNE){
-				timedGuideNSP.setState(PropertyStates.BUSY);
-				motionNE.setValue(SwitchStatus.ON);
-				try {
-					updateProperty(timedGuideNSP);
-					updateProperty(telescopeMotionNSP);
-				} catch (INDIException e) {
-					e.printStackTrace();
-				}
-				command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-				sendCommand();
-				TimerTask task = new TimerTask() {					
-					@Override
-					public void run() {
-						timedGuideNSP.setState(PropertyStates.OK);
-						motionNE.setValue(SwitchStatus.OFF);
+			if (property == timedGuideWEP) {
+				double val = elementsAndValues[0].getValue();
+				INDINumberElement el = elementsAndValues[0].getElement();
+				if(val<=0.){
+					if(elementsAndValues.length>=2){
+						val = elementsAndValues[1].getValue();
+						el = elementsAndValues[1].getElement();
+					}else{
+						timedGuideWEP.setState(PropertyStates.ALERT);
 						try {
-							updateProperty(timedGuideNSP);
-							updateProperty(telescopeMotionNSP);
+							updateProperty(timedGuideWEP,"0ms pulse error");
 						} catch (INDIException e) {
 							e.printStackTrace();
 						}
-						command.setSpeedDE(0);
-						sendCommand();
+						return;
 					}
-				};
-				Timer timer = new Timer();
-				timer.schedule(task, (long)val);
-			}			
-			if(el==timedGuideSE){
-				timedGuideNSP.setState(PropertyStates.BUSY);				
-				motionSE.setValue(SwitchStatus.ON);
-				try {
-					updateProperty(timedGuideNSP);
-					updateProperty(telescopeMotionNSP);
-				} catch (INDIException e) {
-					e.printStackTrace();
 				}
-				command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-				sendCommand();
-				TimerTask task = new TimerTask() {					
-					@Override
-					public void run() {
-						timedGuideNSP.setState(PropertyStates.OK);	
-						motionSE.setValue(SwitchStatus.OFF);
-						try {
-							updateProperty(timedGuideNSP);
-							updateProperty(telescopeMotionNSP);
-						} catch (INDIException e) {
-							e.printStackTrace();
-						}
-						command.setSpeedDE(0);
-						sendCommand();
-					}
-				};
-				Timer timer = new Timer();
-				timer.schedule(task, (long)val);
-			}			
-		}
-		if (property == timedGuideWEP) {
-			double val = elementsAndValues[0].getValue();
-			INDINumberElement el = elementsAndValues[0].getElement();
-			if(val<=0.){
-				if(elementsAndValues.length>=2){
-					val = elementsAndValues[1].getValue();
-					el = elementsAndValues[1].getElement();
-				}else{
+				if(val<=0.){
 					timedGuideWEP.setState(PropertyStates.ALERT);
 					try {
 						updateProperty(timedGuideWEP,"0ms pulse error");
@@ -555,78 +654,145 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					}
 					return;
 				}
-			}
-			if(val<=0.){
-				timedGuideWEP.setState(PropertyStates.ALERT);
-				try {
-					updateProperty(timedGuideWEP,"0ms pulse error");
-				} catch (INDIException e) {
-					e.printStackTrace();
-				}
-				return;
+				
+				if(el==timedGuideWE){
+					timedGuideWEP.setState(PropertyStates.BUSY);
+					motionWE.setValue(SwitchStatus.ON);
+					try {
+						updateProperty(timedGuideWEP);
+						updateProperty(telescopeMotionWEP);
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+					command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
+					sendCommand();
+					TimerTask task = new TimerTask() {					
+						@Override
+						public void run() {
+							timedGuideWEP.setState(PropertyStates.OK);
+							motionWE.setValue(SwitchStatus.OFF);
+							try {
+								updateProperty(timedGuideWEP);
+								updateProperty(telescopeMotionWEP);
+							} catch (INDIException e) {
+								e.printStackTrace();
+							}
+							command.setSpeedRA(0);
+							sendCommand();
+						}
+					};
+					Timer timer = new Timer();
+					timer.schedule(task, (long)val);
+				}			
+				if(el==timedGuideEE){
+					timedGuideWEP.setState(PropertyStates.BUSY);				
+					motionEE.setValue(SwitchStatus.ON);
+					try {
+						updateProperty(timedGuideWEP);
+						updateProperty(telescopeMotionWEP);
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+					command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
+					sendCommand();
+					TimerTask task = new TimerTask() {					
+						@Override
+						public void run() {
+							timedGuideWEP.setState(PropertyStates.OK);	
+							motionEE.setValue(SwitchStatus.OFF);
+							try {
+								updateProperty(timedGuideWEP);
+								updateProperty(telescopeMotionWEP);
+							} catch (INDIException e) {
+								e.printStackTrace();
+							}
+							command.setSpeedRA(0);
+							sendCommand();
+						}
+					};
+					Timer timer = new Timer();
+					timer.schedule(task, (long)val);
+				}			
 			}
 			
-			if(el==timedGuideWE){
-				timedGuideWEP.setState(PropertyStates.BUSY);
-				motionWE.setValue(SwitchStatus.ON);
+			if (property == focusSpeedP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == focusSpeedE) {
+						el.setValue(val);
+						focusSpeedP.setState(PropertyStates.OK);
+					}
+				}
 				try {
-					updateProperty(timedGuideWEP);
-					updateProperty(telescopeMotionWEP);
+					updateProperty(focusSpeedP);
 				} catch (INDIException e) {
 					e.printStackTrace();
 				}
-				command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
-				sendCommand();
-				TimerTask task = new TimerTask() {					
-					@Override
-					public void run() {
-						timedGuideWEP.setState(PropertyStates.OK);
-						motionWE.setValue(SwitchStatus.OFF);
-						try {
-							updateProperty(timedGuideWEP);
-							updateProperty(telescopeMotionWEP);
-						} catch (INDIException e) {
-							e.printStackTrace();
-						}
-						command.setSpeedRA(0);
-						sendCommand();
+			}
+			
+			if (property == focusTimerP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == focusTimerE) {
+						el.setValue(val);
+						moveFocus(val, (int) (focusSpeedE.getValue() * (focusOutwardE.getValue()==SwitchStatus.ON ? 1 : -1)));
 					}
-				};
-				Timer timer = new Timer();
-				timer.schedule(task, (long)val);
-			}			
-			if(el==timedGuideEE){
-				timedGuideWEP.setState(PropertyStates.BUSY);				
-				motionEE.setValue(SwitchStatus.ON);
+				}
 				try {
-					updateProperty(timedGuideWEP);
-					updateProperty(telescopeMotionWEP);
+					updateProperty(focusTimerP);
 				} catch (INDIException e) {
 					e.printStackTrace();
 				}
-				command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
-				sendCommand();
-				TimerTask task = new TimerTask() {					
-					@Override
-					public void run() {
-						timedGuideWEP.setState(PropertyStates.OK);	
-						motionEE.setValue(SwitchStatus.OFF);
-						try {
-							updateProperty(timedGuideWEP);
-							updateProperty(telescopeMotionWEP);
-						} catch (INDIException e) {
-							e.printStackTrace();
-						}
-						command.setSpeedRA(0);
-						sendCommand();
+			}
+			
+			if (property == relFocusPosP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == relFocusPosE) {
+						el.setValue(val);
+						relFocusPosP.setState(PropertyStates.OK);
+						double duration = val / focusSpeedE.getValue();
+						focusTimerE.setValue(Math.abs(duration));
+						moveFocus(Math.abs(duration), (int) (focusSpeedE.getValue() * (duration > 0 ? 1 : -1)));
 					}
-				};
-				Timer timer = new Timer();
-				timer.schedule(task, (long)val);
-			}			
+				}
+				try {
+					updateProperty(relFocusPosP);
+					updateProperty(focusTimerP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			if (property == absFocusPosP) {
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == absFocusPosE) {					
+						double duration = (val-el.getValue()) / focusSpeedE.getValue();
+						focusTimerE.setValue(Math.abs(duration));
+						moveFocus(Math.abs(duration), (int) (focusSpeedE.getValue() * (duration > 0 ? 1 : -1)));
+					}
+				}
+				try {
+					updateProperty(absFocusPosP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+		
+		}catch(IllegalArgumentException e){
+			printMessage(e.getMessage());
+			property.setState(PropertyStates.ALERT);
+			try {
+				updateProperty(property,e.getMessage());
+			} catch (INDIException e1) {
+				e1.printStackTrace();
+			}
 		}
-		
-		
 
 	}
 
@@ -645,226 +811,323 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	public void processNewSwitchValue(INDISwitchProperty property, Date date,
 			INDISwitchElementAndValue[] elementsAndValues) {
 		
-		// Avoid crash when empty property
-		if(elementsAndValues == null){			
-			try {
-				printMessage("elementsAndValues == null");
-				property.setState(PropertyStates.ALERT);
-				updateProperty(property, "Empty property: you may have enter an invalid value");
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-			return;
-		}
-		if(elementsAndValues.length <= 0){
-			try {
-				printMessage("elementsAndValues <= 0");
-				property.setState(PropertyStates.ALERT);
-				updateProperty(property, "Empty property: you may have enter an invalid value");
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-			return;
-		}
-		
-
-		if (property == onCoordSetP) {
-			onCoordSetP.setState(PropertyStates.IDLE);
-			for (int i = 0; i < elementsAndValues.length; i++) {
-				INDISwitchElement el = elementsAndValues[i].getElement();
-				SwitchStatus val = elementsAndValues[i].getValue();
-				if (val == SwitchStatus.ON) {
-					onCoordSetSlewE.setValue(SwitchStatus.OFF);
-					onCoordSetTrackE.setValue(SwitchStatus.OFF);
-					onCoordSetSyncE.setValue(SwitchStatus.OFF);
-					el.setValue(SwitchStatus.ON);
-					onCoordSetP.setState(PropertyStates.OK);
-
+		try{
+			// Avoid crash when empty property
+			if(elementsAndValues == null){			
+				try {
+					printMessage("elementsAndValues == null");
+					property.setState(PropertyStates.ALERT);
+					updateProperty(property, "Empty property: you may have enter an invalid value");
+				} catch (INDIException e) {
+					e.printStackTrace();
 				}
-
-			}
-			try {
-				updateProperty(onCoordSetP);
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-		}
-
-		if (property == sideP) {
-			sideP.setState(PropertyStates.IDLE);
-			boolean hasChanged = false;
-			for (int i = 0; i < elementsAndValues.length; i++) {
-				INDISwitchElement el = elementsAndValues[i].getElement();
-				SwitchStatus val = elementsAndValues[i].getValue();
-				if (val != el.getValue()) {
-					hasChanged = true;
-				}
-			}
-			if (hasChanged) {
-				if (sideWestE.getValue() == SwitchStatus.ON) {
-					sideWestE.setValue(SwitchStatus.OFF);
-					sideEastE.setValue(SwitchStatus.ON);
-				} else {
-					sideWestE.setValue(SwitchStatus.ON);
-					sideEastE.setValue(SwitchStatus.OFF);
-				}
-				sideP.setState(PropertyStates.OK);
-
-				syncCoordHA = syncCoordHA + 12;
-				syncCoordDE = 180 - syncCoordDE;
-			}
-			try {
-				updateProperty(sideP);
-			} catch (INDIException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-
-		if (property == telescopeMotionNSP) {
-
-			if (elementsAndValues.length != 2) {
-				printMessage("elementsAndValues.length!=2");
 				return;
 			}
-
-			if (motionNE.getValue() == SwitchStatus.ON) {
-				if ((elementsAndValues[0].getElement() == motionSE && elementsAndValues[0].getValue() == SwitchStatus.ON)
-						|| (elementsAndValues[1].getElement() == motionSE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
-					motionNE.setValue(SwitchStatus.OFF);
-					motionSE.setValue(SwitchStatus.ON);
-				} else if ((elementsAndValues[0].getElement() == motionNE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
-						|| (elementsAndValues[1].getElement() == motionNE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
-					motionNE.setValue(SwitchStatus.OFF);
+			if(elementsAndValues.length <= 0){
+				try {
+					printMessage("elementsAndValues <= 0");
+					property.setState(PropertyStates.ALERT);
+					updateProperty(property, "Empty property: you may have enter an invalid value");
+				} catch (INDIException e) {
+					e.printStackTrace();
 				}
-			} else if (motionSE.getValue() == SwitchStatus.ON) {
-				if ((elementsAndValues[0].getElement() == motionNE && elementsAndValues[0].getValue() == SwitchStatus.ON)
-						|| (elementsAndValues[1].getElement() == motionNE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
-					motionSE.setValue(SwitchStatus.OFF);
-					motionNE.setValue(SwitchStatus.ON);
-				} else if ((elementsAndValues[0].getElement() == motionSE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
-						|| (elementsAndValues[1].getElement() == motionSE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
-					motionSE.setValue(SwitchStatus.OFF);
-				}
-			} else {
-				if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
-					elementsAndValues[0].getElement().setValue(SwitchStatus.ON);
-				} else if (elementsAndValues[1].getValue() == SwitchStatus.ON) {
-					elementsAndValues[1].getElement().setValue(SwitchStatus.ON);
-				}
-			}
-
-			if (motionNE.getValue() == SwitchStatus.ON) {
-				command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1)
-						* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-				telescopeMotionNSP.setState(PropertyStates.OK);
-			} else if (motionSE.getValue() == SwitchStatus.ON) {
-				command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1)
-						* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-				telescopeMotionNSP.setState(PropertyStates.OK);
-			} else {
-				command.setSpeedDE(0);
-				telescopeMotionNSP.setState(PropertyStates.IDLE);
-			}
-			sendCommand();
-
-			try {
-				updateProperty(telescopeMotionNSP);
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-		}
-
-		if (property == telescopeMotionWEP) {
-
-			if (elementsAndValues.length != 2) {
-				printMessage("elementsAndValues.length!=2");
 				return;
 			}
-
-			if (motionWE.getValue() == SwitchStatus.ON) {
-				if ((elementsAndValues[0].getElement() == motionEE && elementsAndValues[0].getValue() == SwitchStatus.ON)
-						|| (elementsAndValues[1].getElement() == motionEE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
-					motionWE.setValue(SwitchStatus.OFF);
-					motionEE.setValue(SwitchStatus.ON);
-				} else if ((elementsAndValues[0].getElement() == motionWE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
-						|| (elementsAndValues[1].getElement() == motionWE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
-					motionWE.setValue(SwitchStatus.OFF);
-				}
-			} else if (motionEE.getValue() == SwitchStatus.ON) {
-				if ((elementsAndValues[0].getElement() == motionWE && elementsAndValues[0].getValue() == SwitchStatus.ON)
-						|| (elementsAndValues[1].getElement() == motionWE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
-					motionEE.setValue(SwitchStatus.OFF);
-					motionWE.setValue(SwitchStatus.ON);
-				} else if ((elementsAndValues[0].getElement() == motionEE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
-						|| (elementsAndValues[1].getElement() == motionEE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
-					motionEE.setValue(SwitchStatus.OFF);
-				}
-			} else {
-				if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
-					elementsAndValues[0].getElement().setValue(SwitchStatus.ON);
-				} else if (elementsAndValues[1].getValue() == SwitchStatus.ON) {
-					elementsAndValues[1].getElement().setValue(SwitchStatus.ON);
-				}
-			}
-
-			if (motionWE.getValue() == SwitchStatus.ON) {
-				command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
-				telescopeMotionWEP.setState(PropertyStates.OK);
-			} else if (motionEE.getValue() == SwitchStatus.ON) {
-				command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
-				telescopeMotionWEP.setState(PropertyStates.OK);
-			} else {
-				command.setSpeedRA(0);
-				telescopeMotionWEP.setState(PropertyStates.IDLE);
-			}
-			sendCommand();
-
-			try {
-				updateProperty(telescopeMotionWEP);
-			} catch (INDIException e) {
-				e.printStackTrace();
-			}
-		}
-
-		// if (property == enableAxisP) {
-		// enableAxisP.setState(PropertyStates.IDLE);
-		// for (int i = 0; i < elementsAndValues.length; i++) {
-		// INDISwitchElement el = elementsAndValues[i].getElement();
-		// SwitchStatus val = elementsAndValues[i].getValue();
-		// if (val != el.getValue()) {
-		// el.setValue(val);
-		// enableAxisP.setState(PropertyStates.OK);
-		// }
-		// }
-		// try {
-		// updateProperty(enableAxisP);
-		// } catch (INDIException e) {
-		// e.printStackTrace();
-		// }
-		// }
-		//
-		if (property == abortMotionP) {
-			if (elementsAndValues.length > 0) {
-				if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
-					abortMotionP.setState(PropertyStates.OK);
-					gotoActive = false;
-					command.setSpeedDE(0);
-					command.setSpeedRA(0);
-					sendCommand();
-
-					motionEE.setValue(SwitchStatus.OFF);
-					motionWE.setValue(SwitchStatus.OFF);
-					motionNE.setValue(SwitchStatus.OFF);
-					motionSE.setValue(SwitchStatus.OFF);
+			// debug
+			//printMessage("Prop: "+property.getName()+"\n" + elementsAndValues.length + " element(s):\n 1) " + elementsAndValues[0].getElement().getNameAndValueAsString());
+			
+	
+			if (property == onCoordSetP) {
+				onCoordSetP.setState(PropertyStates.IDLE);
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDISwitchElement el = elementsAndValues[i].getElement();
+					SwitchStatus val = elementsAndValues[i].getValue();
+					if (val == SwitchStatus.ON) {
+						onCoordSetSlewE.setValue(SwitchStatus.OFF);
+						onCoordSetTrackE.setValue(SwitchStatus.OFF);
+						onCoordSetSyncE.setValue(SwitchStatus.OFF);
+						el.setValue(SwitchStatus.ON);
+						onCoordSetP.setState(PropertyStates.OK);
+	
+					}
+	
 				}
 				try {
-					updateProperty(abortMotionP);
+					updateProperty(onCoordSetP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+	
+			if (property == sideP) {
+				sideP.setState(PropertyStates.IDLE);
+				boolean hasChanged = false;
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDISwitchElement el = elementsAndValues[i].getElement();
+					SwitchStatus val = elementsAndValues[i].getValue();
+					if (val != el.getValue()) {
+						hasChanged = true;
+					}
+				}
+				if (hasChanged) {
+					if (sideWestE.getValue() == SwitchStatus.ON) {
+						sideWestE.setValue(SwitchStatus.OFF);
+						sideEastE.setValue(SwitchStatus.ON);
+					} else {
+						sideWestE.setValue(SwitchStatus.ON);
+						sideEastE.setValue(SwitchStatus.OFF);
+					}
+					sideP.setState(PropertyStates.OK);
+	
+					syncCoordHA = syncCoordHA + 12;
+					syncCoordDE = 180 - syncCoordDE;
+				}
+				try {
+					updateProperty(sideP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+	
+			if (property == telescopeMotionNSP) {
+	
+				if (elementsAndValues.length != 2) {
+					printMessage("elementsAndValues.length!=2");
+					return;
+				}
+	
+				if (motionNE.getValue() == SwitchStatus.ON) {
+					if ((elementsAndValues[0].getElement() == motionSE && elementsAndValues[0].getValue() == SwitchStatus.ON)
+							|| (elementsAndValues[1].getElement() == motionSE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
+						motionNE.setValue(SwitchStatus.OFF);
+						motionSE.setValue(SwitchStatus.ON);
+					} else if ((elementsAndValues[0].getElement() == motionNE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
+							|| (elementsAndValues[1].getElement() == motionNE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
+						motionNE.setValue(SwitchStatus.OFF);
+					}
+				} else if (motionSE.getValue() == SwitchStatus.ON) {
+					if ((elementsAndValues[0].getElement() == motionNE && elementsAndValues[0].getValue() == SwitchStatus.ON)
+							|| (elementsAndValues[1].getElement() == motionNE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
+						motionSE.setValue(SwitchStatus.OFF);
+						motionNE.setValue(SwitchStatus.ON);
+					} else if ((elementsAndValues[0].getElement() == motionSE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
+							|| (elementsAndValues[1].getElement() == motionSE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
+						motionSE.setValue(SwitchStatus.OFF);
+					}
+				} else {
+					if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
+						elementsAndValues[0].getElement().setValue(SwitchStatus.ON);
+					} else if (elementsAndValues[1].getValue() == SwitchStatus.ON) {
+						elementsAndValues[1].getElement().setValue(SwitchStatus.ON);
+					}
+				}
+	
+				if (motionNE.getValue() == SwitchStatus.ON) {
+					command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1)
+							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					telescopeMotionNSP.setState(PropertyStates.OK);
+				} else if (motionSE.getValue() == SwitchStatus.ON) {
+					command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1)
+							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					telescopeMotionNSP.setState(PropertyStates.OK);
+				} else {
+					command.setSpeedDE(0);
+					telescopeMotionNSP.setState(PropertyStates.IDLE);
+				}
+				sendCommand();
+	
+				try {
 					updateProperty(telescopeMotionNSP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+	
+			if (property == telescopeMotionWEP) {
+	
+				if (elementsAndValues.length != 2) {
+					printMessage("elementsAndValues.length!=2");
+					return;
+				}
+	
+				if (motionWE.getValue() == SwitchStatus.ON) {
+					if ((elementsAndValues[0].getElement() == motionEE && elementsAndValues[0].getValue() == SwitchStatus.ON)
+							|| (elementsAndValues[1].getElement() == motionEE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
+						motionWE.setValue(SwitchStatus.OFF);
+						motionEE.setValue(SwitchStatus.ON);
+					} else if ((elementsAndValues[0].getElement() == motionWE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
+							|| (elementsAndValues[1].getElement() == motionWE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
+						motionWE.setValue(SwitchStatus.OFF);
+					}
+				} else if (motionEE.getValue() == SwitchStatus.ON) {
+					if ((elementsAndValues[0].getElement() == motionWE && elementsAndValues[0].getValue() == SwitchStatus.ON)
+							|| (elementsAndValues[1].getElement() == motionWE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
+						motionEE.setValue(SwitchStatus.OFF);
+						motionWE.setValue(SwitchStatus.ON);
+					} else if ((elementsAndValues[0].getElement() == motionEE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
+							|| (elementsAndValues[1].getElement() == motionEE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
+						motionEE.setValue(SwitchStatus.OFF);
+					}
+				} else {
+					if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
+						elementsAndValues[0].getElement().setValue(SwitchStatus.ON);
+					} else if (elementsAndValues[1].getValue() == SwitchStatus.ON) {
+						elementsAndValues[1].getElement().setValue(SwitchStatus.ON);
+					}
+				}
+	
+				if (motionWE.getValue() == SwitchStatus.ON) {
+					command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
+					telescopeMotionWEP.setState(PropertyStates.OK);
+				} else if (motionEE.getValue() == SwitchStatus.ON) {
+					command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
+					telescopeMotionWEP.setState(PropertyStates.OK);
+				} else {
+					command.setSpeedRA(0);
+					telescopeMotionWEP.setState(PropertyStates.IDLE);
+				}
+				sendCommand();
+	
+				try {
 					updateProperty(telescopeMotionWEP);
 				} catch (INDIException e) {
 					e.printStackTrace();
 				}
+			}
+	
+			if (property == focuserIntervalometerP) {
+	
+				if (elementsAndValues.length != 2) {
+					printMessage("elementsAndValues.length!=2");
+					return;
+				}
+	
+				if (focuserE.getValue() == SwitchStatus.ON) {
+					if ((elementsAndValues[0].getElement() == intervalometerE && elementsAndValues[0].getValue() == SwitchStatus.ON)
+							|| (elementsAndValues[1].getElement() == intervalometerE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
+						focuserE.setValue(SwitchStatus.OFF);
+						intervalometerE.setValue(SwitchStatus.ON);
+						disableFocuser();
+						activeIntervalometer();
+					} else if ((elementsAndValues[0].getElement() == focuserE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
+							|| (elementsAndValues[1].getElement() == focuserE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
+						focuserE.setValue(SwitchStatus.OFF);
+						disableFocuser();
+	
+					}
+				} else if (intervalometerE.getValue() == SwitchStatus.ON) {
+					if ((elementsAndValues[0].getElement() == focuserE && elementsAndValues[0].getValue() == SwitchStatus.ON)
+							|| (elementsAndValues[1].getElement() == focuserE && elementsAndValues[1].getValue() == SwitchStatus.ON)) {
+						intervalometerE.setValue(SwitchStatus.OFF);
+						focuserE.setValue(SwitchStatus.ON);
+						activeFocuser();
+						disableIntervalometer();
+					} else if ((elementsAndValues[0].getElement() == intervalometerE && elementsAndValues[0].getValue() == SwitchStatus.OFF)
+							|| (elementsAndValues[1].getElement() == intervalometerE && elementsAndValues[1].getValue() == SwitchStatus.OFF)) {
+						intervalometerE.setValue(SwitchStatus.OFF);
+						disableIntervalometer();
+					}
+				} else {
+					if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
+						elementsAndValues[0].getElement().setValue(SwitchStatus.ON);
+						if(elementsAndValues[0].getElement()==intervalometerE){
+							activeIntervalometer();
+						}else{
+							activeFocuser();
+						}
+					} else if (elementsAndValues[1].getValue() == SwitchStatus.ON) {
+						elementsAndValues[1].getElement().setValue(SwitchStatus.ON);
+						if(elementsAndValues[1].getElement()==intervalometerE){
+							activeIntervalometer();
+						}else{
+							activeFocuser();
+						}
+					}
+				}
+	
+				if (focuserE.getValue() == SwitchStatus.ON || intervalometerE.getValue() == SwitchStatus.ON){
+					focuserIntervalometerP.setState(PropertyStates.OK);
+				}else{
+					focuserIntervalometerP.setState(PropertyStates.IDLE);
+				}
+	
+	
+				try {
+					updateProperty(focuserIntervalometerP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			
+			// if (property == enableAxisP) {
+			// enableAxisP.setState(PropertyStates.IDLE);
+			// for (int i = 0; i < elementsAndValues.length; i++) {
+			// INDISwitchElement el = elementsAndValues[i].getElement();
+			// SwitchStatus val = elementsAndValues[i].getValue();
+			// if (val != el.getValue()) {
+			// el.setValue(val);
+			// enableAxisP.setState(PropertyStates.OK);
+			// }
+			// }
+			// try {
+			// updateProperty(enableAxisP);
+			// } catch (INDIException e) {
+			// e.printStackTrace();
+			// }
+			// }
+			//
+			if (property == abortMotionP) {
+				if (elementsAndValues.length > 0) {
+					if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
+						abortMotionP.setState(PropertyStates.OK);
+						gotoActive = false;
+						command.setSpeedDE(0);
+						command.setSpeedRA(0);
+						sendCommand();
+	
+						motionEE.setValue(SwitchStatus.OFF);
+						motionWE.setValue(SwitchStatus.OFF);
+						motionNE.setValue(SwitchStatus.OFF);
+						motionSE.setValue(SwitchStatus.OFF);
+					}
+					try {
+						updateProperty(abortMotionP);
+						updateProperty(telescopeMotionNSP);
+						updateProperty(telescopeMotionWEP);
+					} catch (INDIException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+			
+			if (property == focusMotionP) {
+				focusMotionP.setState(PropertyStates.IDLE);
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDISwitchElement el = elementsAndValues[i].getElement();
+					SwitchStatus val = elementsAndValues[i].getValue();
+					if (val == SwitchStatus.ON) {
+						focusInwardE.setValue(SwitchStatus.OFF);
+						focusOutwardE.setValue(SwitchStatus.OFF);
+						el.setValue(SwitchStatus.ON);
+						focusMotionP.setState(PropertyStates.OK);
+	
+					}
+	
+				}
+				try {
+					updateProperty(focusMotionP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+		}catch(IllegalArgumentException e){
+			printMessage(e.getMessage());
+			property.setState(PropertyStates.ALERT);
+			try {
+				updateProperty(property,e.getMessage());
+			} catch (INDIException e1) {
+				e1.printStackTrace();
 			}
 		}
 	}
@@ -882,26 +1145,37 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	 */
 	@Override
 	public void processNewTextValue(INDITextProperty property, Date date, INDITextElementAndValue[] elementsAndValues) {
-		// Avoid crash when empty property
-		if(elementsAndValues == null){			
-			try {
-				printMessage("elementsAndValues == null");
-				property.setState(PropertyStates.ALERT);
-				updateProperty(property, "Empty property: you may have enter an invalid value");
-			} catch (INDIException e) {
-				e.printStackTrace();
+		
+		try{
+			// Avoid crash when empty property
+			if(elementsAndValues == null){			
+				try {
+					printMessage("elementsAndValues == null");
+					property.setState(PropertyStates.ALERT);
+					updateProperty(property, "Empty property: you may have enter an invalid value");
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				return;
 			}
-			return;
-		}
-		if(elementsAndValues.length <= 0){
-			try {
-				printMessage("elementsAndValues <= 0");
-				property.setState(PropertyStates.ALERT);
-				updateProperty(property, "Empty property: you may have enter an invalid value");
-			} catch (INDIException e) {
-				e.printStackTrace();
+			if(elementsAndValues.length <= 0){
+				try {
+					printMessage("elementsAndValues <= 0");
+					property.setState(PropertyStates.ALERT);
+					updateProperty(property, "Empty property: you may have enter an invalid value");
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+				return;
 			}
-			return;
+		}catch(IllegalArgumentException e){
+			printMessage(e.getMessage());
+			property.setState(PropertyStates.ALERT);
+			try {
+				updateProperty(property,e.getMessage());
+			} catch (INDIException e1) {
+				e1.printStackTrace();
+			}
 		}
 		
 		// No properties
@@ -933,6 +1207,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		addProperty(timedGuideNSP);
 		addProperty(timedGuideWEP);
 		addProperty(servoP);
+		addProperty(focuserIntervalometerP);
 
 		syncCoordHA = getSiderealTime();
 		syncStepHA = 0;
@@ -956,6 +1231,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	 */
 	protected void onDisconnected(){
 		printMessage("Driver disconnect");
+		removeProperty(intervalometerSettingsP);
 		removeProperty(linkStatusP);
 		removeProperty(eqCoordP);
 		removeProperty(sideP);
@@ -966,6 +1242,14 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		removeProperty(motionRateP);
 		removeProperty(timedGuideNSP);
 		removeProperty(timedGuideWEP);
+		removeProperty(servoP);
+		removeProperty(focuserIntervalometerP);
+		removeProperty(focusMotionP);
+		removeProperty(focusSpeedP);
+		removeProperty(focusTimerP);
+		removeProperty(relFocusPosP);
+		removeProperty(absFocusPosP);
+
 	}
 
 	/**
@@ -1104,6 +1388,12 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 
 			if (speedRA == 0 && speedDE == 0) {
 				gotoActive = false;
+				eqCoordP.setState(PropertyStates.OK);
+				try {
+					updateProperty(eqCoordP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
 			}
 
 			if (commandChanged) {
@@ -1140,4 +1430,207 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		res += (res >= 180 ? -360 : 0);
 		return res;
 	}
+	
+	/**
+	 * Execute the focus servo move
+	 * @param time duration of the move in s
+	 * @param speed negative or positive speed
+	 */
+	private void moveFocus(final double duration, final double speed){
+		updateTicks((int) (neutralTicksE.getValue() + speed));
+		TimerTask task = new TimerTask(){
+			@Override
+			public void run() {
+				updateTicks(CmdMessage.TICKS_OFF);
+				focusTimerP.setState(PropertyStates.OK);
+				absFocusPosE.setValue(absFocusPosE.getValue()+speed*duration);
+				try {
+					updateProperty(focusTimerP);
+					updateProperty(absFocusPosP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}			
+		};
+		Timer timer = new Timer();
+		timer.schedule(task, (long) (duration*1000));
+		
+		focusTimerP.setState(PropertyStates.IDLE);
+		try {
+			updateProperty(focusTimerP);
+		} catch (INDIException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	private void activeFocuser(){
+		addProperty(focusMotionP);
+		addProperty(focusSpeedP);
+		addProperty(focusTimerP);
+		addProperty(relFocusPosP);
+		addProperty(absFocusPosP);
+	}
+	
+	private void disableFocuser(){
+		removeProperty(focusMotionP);
+		removeProperty(focusSpeedP);
+		removeProperty(focusTimerP);
+		removeProperty(relFocusPosP);
+		removeProperty(absFocusPosP);
+	}
+	
+	private void activeIntervalometer(){
+		addProperty(intervalometerSettingsP);
+		initIntervalometer();
+	}
+	
+	private void disableIntervalometer(){
+		removeProperty(intervalometerSettingsP);
+		stopIntervalometer();
+	}
+	
+
+	Timer intervalometer;
+	
+
+	TimerTask currentTask;	
+	
+
+	
+	private void initIntervalometer(){
+		intervalometer = new Timer();
+		
+		
+	}
+	
+	private void startIntervalometer(){
+		printMessage("Start");
+		currentTask = new CompleteTask();
+		updateTicks(CmdMessage.TICKS_OFF);
+
+		intervalometerSettingsP.setState(PropertyStates.BUSY);
+		try {
+			updateProperty(intervalometerSettingsP);
+		} catch (INDIException e) {
+			e.printStackTrace();
+		}
+		
+		double n = exposureNumberE.getValue();
+		if(n>0){
+			if(mirrorRaisingTimeE.getValue()>0.1){
+				intervalometer.schedule(new MirrorRaisingTask(), 100);
+			}else{
+				intervalometer.schedule(new ExposeTask(), 100);
+			}
+		}else{
+			intervalometerSettingsP.setState(PropertyStates.OK);
+			try {
+				updateProperty(intervalometerSettingsP);
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void stopIntervalometer(){
+		printMessage("Stop");
+		intervalometer.cancel();
+		intervalometer = new Timer();
+		updateTicks(CmdMessage.TICKS_OFF);
+
+	}
+	private void resetIntervalometer(){
+		printMessage("Stop");
+		intervalometer.cancel();
+		intervalometer = new Timer();
+		startIntervalometer();
+	}
+	
+    
+	private void updateTicks(int ticks){
+		command.setTicks(ticks);
+		sendCommand();
+		currentTicksE.setValue((double)ticks);
+		try {
+			updateProperty(servoP);
+		} catch (INDIException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private class MirrorReleaseTask extends TimerTask{
+		@Override
+		public void run() {
+			printMessage("MirrorRelease");
+			currentTask = this;
+			updateTicks(CmdMessage.TICKS_OFF);
+
+			intervalometer.schedule(new ExposeTask(), (long)(mirrorRaisingTimeE.getValue()*1000)-100);
+		}
+		
+	}
+	
+	private class MirrorRaisingTask extends TimerTask{
+		@Override
+		public void run() {
+			printMessage("MirrorRaising");
+			currentTask = this;
+			updateTicks(CmdMessage.TICKS_EXPOSE_FOCUS);
+
+			intervalometer.schedule(new MirrorReleaseTask(), 100);
+		}
+		
+	}
+	
+
+	
+	private class ExposeTask extends TimerTask{
+		@Override
+		public void run() {
+			printMessage("Expose");
+			currentTask = this;
+			updateTicks(CmdMessage.TICKS_EXPOSE_FOCUS);
+
+			intervalometer.schedule(new CompleteTask(), (long)(exposureTimeE.getValue()*1000));
+		}
+		
+	}
+	
+	private class CompleteTask extends TimerTask{
+		@Override
+		public void run() {
+			printMessage("Complete");
+			currentTask = this;
+			updateTicks(CmdMessage.TICKS_OFF);
+			
+			
+			double n = exposureNumberE.getValue();
+			n=n-1;
+			exposureNumberE.setValue(n);
+			try {
+				updateProperty(intervalometerSettingsP);
+			} catch (INDIException e) {
+				e.printStackTrace();
+			}
+			if(n>0){
+				if(mirrorRaisingTimeE.getValue()>0.1){
+					intervalometer.schedule(new MirrorRaisingTask(),  (long)(delayTimeE.getValue()*1000));
+				}else{
+					intervalometer.schedule(new ExposeTask(),  (long)(delayTimeE.getValue()*1000));
+				}
+			}else{
+				intervalometerSettingsP.setState(PropertyStates.OK);
+				try {
+					updateProperty(intervalometerSettingsP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+		}
+		
+	};
+	
+
 }
