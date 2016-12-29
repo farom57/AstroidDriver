@@ -76,6 +76,7 @@ public class CmdMessage {
 	public void setSpeedDE(float speedDE) {
 		this.speedDE = speedDE;
 	}
+	
 
 	/**
 	 * @return the ticks

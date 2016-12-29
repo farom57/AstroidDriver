@@ -36,6 +36,18 @@ public class StatusMessage{
         ticks = parseInt(buffer[28],buffer[29]);
 	}
 	
+	public StatusMessage(int ms, int HA, int DE, float uHA, float uDE, float mRA, float mDE, int tks){
+		time = (new Date()).getTime();
+		msCount = ms;
+		stepHA= HA;
+		stepDE = DE;
+		uStepHA = uHA;
+		uStepDE = uDE;
+		moveSpeedRA = mRA;
+		moveSpeedDE = mDE;
+		ticks = tks;		
+	}
+	
 	/**
 	 * Form a positive integer from two bytes
 	 * @param high most significant byte

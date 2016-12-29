@@ -119,5 +119,15 @@ public class INDIAstroidDriverSimulator extends INDIAstroidDriver {
 		ticks_servo = command.getTicks();
 		
 	}
+	
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see laazotea.indi.driver.INDIDriver#getName()
+	 */
+	@Override
+	public String getName() {
+		return "Astroid Simulator";
+	}
 
 }

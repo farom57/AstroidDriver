@@ -34,7 +34,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	/**
 	 * if the motor direction is inverted
 	 */
-	private static final boolean INVERT_DE = false; //
+	private static final boolean INVERT_DE = true; //
 
 	/**
 	 * status turns red if no StatusMessage is received for
@@ -45,7 +45,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private static final double GOTO_STOP_DISTANCE = 1. / 60.;
 	private static final double GOTO_SLOW_DISTANCE = 15. / 60.;
 	private static final float MAX_SPEED = 240;
-	private static final float GOTO_SPEED = MAX_SPEED;
+	private static final float GOTO_SPEED = 240;
+	private static final float GOTO_ACC_T = 10;
 	private static final float GOTO_SLOW_SPEED = GOTO_SPEED/10;
 
 	/**
@@ -123,6 +124,13 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private INDINumberProperty servoP; // SERVO
 	private INDINumberElement currentTicksE ; // CURRENT_TICKS
 	private INDINumberElement neutralTicksE ; // CURRENT_TICKS
+	
+	private INDISwitchProperty trackRateP; // TELESCOPE_TRACK_RATE
+	private INDISwitchElement trackSideralE; // TRACK_SIDEREAL
+	private INDISwitchElement trackSolarE; // TRACK_SOLAR
+	private INDISwitchElement trackLunarE; // TRACK_LUNAR
+	private INDISwitchElement trackCustomE; // TRACK_CUSTOM
+	
 
 	
 	/**
@@ -153,6 +161,11 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 
 	private INDINumberProperty motionRateP;
 	private INDINumberElement motionRateE;
+	
+	private INDINumberProperty currentRateP;
+	private INDINumberElement currentDERateE;
+	private INDINumberElement currentRARateE;
+	private INDINumberElement trackingRateE;
 
 	
 	protected StatusMessage lastStatusMessage;
@@ -165,7 +178,12 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	private double gotoTargetRA;
 	private double gotoTargetDE;
 	private boolean gotoActive;
-	private float motionSpeed;
+	
+	private double motionSpeed;
+	private double trackSpeed = 1;
+	private double slewDESpeed = 0;
+	private double slewRASpeed = 0;
+	private Date lastGotoUpdate;
 	
 
 	/**
@@ -213,10 +231,10 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		eqCoordDEE = new INDINumberElement(eqCoordP, "DEC", "DEC (dd:mm:ss)", 0., -180, 180, 0, "%010.6m"); // DEC
 
 		
-		sideP = new INDISwitchProperty(this, "TELESCOPE_SIDE", "Telescope side", "Main Control",
+		sideP = new INDISwitchProperty(this, "TELESCOPE_PIER_SIDE", "Telescope side", "Main Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.ONE_OF_MANY); // TELESCOPE_MOTION_WE
-		sideEastE = new INDISwitchElement(sideP, "WEST", "West", Constants.SwitchStatus.OFF);
-		sideWestE = new INDISwitchElement(sideP, "EAST", "East", Constants.SwitchStatus.ON);
+		sideWestE = new INDISwitchElement(sideP, "PIER_EAST", "Pointing West", Constants.SwitchStatus.OFF);//Mount on the East side of pier (Pointing West).
+		sideEastE = new INDISwitchElement(sideP, "PIER_WEST", "Pointing East", Constants.SwitchStatus.ON);// Mount on the West side of pier (Pointing East).
 
 		
 		onCoordSetP = new INDISwitchProperty(this, "ON_COORD_SET", "On Set", "Main Control",
@@ -245,10 +263,20 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		
 		motionRateP = new INDINumberProperty(this, "TELESCOPE_MOTION_RATE", "Motion rate", "Motion Control",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);
-		motionRateE = new INDINumberElement(motionRateP, "MOTION_RATE", "Motion rate (arcmin/s)", MAX_SPEED*SIDERAL_RATE, 0., MAX_SPEED*SIDERAL_RATE, 0,
+		motionRateE = new INDINumberElement(motionRateP, "MOTION_RATE", "Motion rate (X)", MAX_SPEED, 0., MAX_SPEED, 0,
 				"%7.2f");
-		motionSpeed = (float) (motionRateE.getValue() / SIDERAL_RATE);
+		motionSpeed = motionRateE.getValue();
 		
+		currentRateP = new INDINumberProperty(this, "TELESCOPE_CURRENT_RATE", "Current rate", "Motion Control",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW);		
+		currentRARateE = new INDINumberElement(currentRateP, "CURRENT_RA_RATE", "RA rate (X)", 0, -2*MAX_SPEED, 2*MAX_SPEED, 0,
+				"%7.2f");
+		currentDERateE = new INDINumberElement(currentRateP, "CURRENT_DE_RATE", "DE rate (X)", 0, -2*MAX_SPEED, 2*MAX_SPEED, 0,
+				"%7.2f");
+		trackingRateE = new INDINumberElement(currentRateP, "TRACKING_RATE", "Tracking rate (X)", -1, -2*MAX_SPEED, 2*MAX_SPEED, 0,
+				"%7.2f");
+		
+
 		
 		telescopeInfoP = INDINumberProperty.createSaveableNumberProperty(this, "TELESCOPE_INFO", "Telescope info", "Info",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // TELESCOPE_INFO
@@ -293,7 +321,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // FOCUS_TIMER
 		focusTimerE = new INDINumberElement(focusTimerP, "FOCUS_TIMER_VALUE", "Duration", 1, 0, 60, 0,"%5.2f"); // FOCUS_TIMER_VALUE
 
-		focusMotionP = new INDISwitchProperty(this, "FOCUS_MOTION", "Focus motiont", "Focuser / intervalometer",
+		focusMotionP = new INDISwitchProperty(this, "FOCUS_MOTION", "Focus motion", "Focuser / intervalometer",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.ONE_OF_MANY); // FOCUS_MOTION
 		focusInwardE = new INDISwitchElement(focusMotionP, "FOCUS_INWARD", "Inward", Constants.SwitchStatus.ON); // FOCUS_INWARD
 		focusOutwardE = new INDISwitchElement(focusMotionP, "FOCUS_OUTWARD", "Outward", Constants.SwitchStatus.OFF); // FOCUS_OUTWARD
@@ -305,6 +333,14 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		absFocusPosP = new INDINumberProperty(this, "ABS_FOCUS_POSITION", "Absolute position", "Focuser / intervalometer",
 				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW); // ABS_FOCUS_POSITION
 		absFocusPosE = new INDINumberElement(absFocusPosP, "FOCUS_ABSOLUTE_POSITION", "Abs position", 0, -1e9, 1e9, 0,"%7.2f"); // FOCUS_ABSOLUTE_POSITION
+		
+		trackRateP = new INDISwitchProperty(this, "TELESCOPE_TRACK_RATE", "Track rate", "Motion Control",
+				Constants.PropertyStates.IDLE, Constants.PropertyPermissions.RW, Constants.SwitchRules.ONE_OF_MANY); // TELESCOPE_TRACK_RATE
+		trackSideralE = new INDISwitchElement(trackRateP, "TRACK_SIDEREAL", "Sidereal", Constants.SwitchStatus.ON); // TRACK_SIDEREAL
+		trackSolarE = new INDISwitchElement(trackRateP, "TRACK_SOLAR", "Solar", Constants.SwitchStatus.OFF); // TRACK_SOLAR
+		trackLunarE = new INDISwitchElement(trackRateP, "TRACK_LUNAR", "Lunar", Constants.SwitchStatus.OFF); // TRACK_LUNAR
+		trackCustomE = new INDISwitchElement(trackRateP, "TRACK_CUSTOM", "Off", Constants.SwitchStatus.OFF); // TRACK_CUSTOM
+		trackSpeed = 1;
 		
 		// --- Remaining initializations ---
 
@@ -346,7 +382,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	 */
 	@Override
 	public String getName() {
-		return "INDI Astroid Driver";
+		return "Astroid";
 	}
 
 	/**
@@ -443,7 +479,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					INDINumberElement el = elementsAndValues[i].getElement();
 					double val = elementsAndValues[i].getValue();
 					if (el == eqCoordDEE) {
-						newDE = mod360(val);
+						newDE = mod360(val+180)-180;
 					} else {
 						newRA = mod24(val);
 					}
@@ -461,25 +497,26 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 			if (property == motionRateP) {
 				double val = elementsAndValues[0].getValue();
 				motionRateE.setValue(val);
-				motionSpeed = (float) (val / SIDERAL_RATE);
+				motionSpeed = val;
 	
 				if (motionNE.getValue() == SwitchStatus.ON) {
-					command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1)
-							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					slewDESpeed = motionSpeed;
+					updateSpeed();
 					telescopeMotionNSP.setState(PropertyStates.OK);
 				} else if (motionSE.getValue() == SwitchStatus.ON) {
-					command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1)
-							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					slewDESpeed = -motionSpeed;
+					updateSpeed();
 					telescopeMotionNSP.setState(PropertyStates.OK);
 				}
 				if (motionWE.getValue() == SwitchStatus.ON) {
-					command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
+					slewRASpeed = -motionSpeed;
+					updateSpeed();
 					telescopeMotionWEP.setState(PropertyStates.OK);
 				} else if (motionEE.getValue() == SwitchStatus.ON) {
-					command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
+					slewRASpeed = motionSpeed;
+					updateSpeed();
 					telescopeMotionWEP.setState(PropertyStates.OK);
 				}
-				sendCommand();
 				motionRateP.setState(PropertyStates.OK);
 	
 				try {
@@ -487,6 +524,27 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				} catch (INDIException e) {
 					e.printStackTrace();
 				}
+
+			}
+			
+			// --- Current rate ---
+			if (property == currentRateP) {
+				currentRateP.setState(PropertyStates.BUSY);
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDINumberElement el = elementsAndValues[i].getElement();
+					double val = elementsAndValues[i].getValue();
+					if (el == currentRARateE) {
+						slewRASpeed = val;
+					} else if (el == currentDERateE) {
+						slewDESpeed = val;
+					} else if (el == trackingRateE) {
+						trackSpeed = val;
+					}
+					
+				}
+				updateSpeed();
+				// "updateProperty" already performed in updateSpeed()
+
 			}
 			
 			// --- Telescope info ---
@@ -578,8 +636,10 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					} catch (INDIException e) {
 						e.printStackTrace();
 					}
-					command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-					sendCommand();
+					
+					slewDESpeed = motionSpeed;
+					updateSpeed();
+					
 					TimerTask task = new TimerTask() {					
 						@Override
 						public void run() {
@@ -591,8 +651,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 							} catch (INDIException e) {
 								e.printStackTrace();
 							}
-							command.setSpeedDE(0);
-							sendCommand();
+							slewDESpeed = 0;
+							updateSpeed();
 						}
 					};
 					Timer timer = new Timer();
@@ -607,8 +667,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					} catch (INDIException e) {
 						e.printStackTrace();
 					}
-					command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
-					sendCommand();
+					slewDESpeed = motionSpeed;
+					updateSpeed();
 					TimerTask task = new TimerTask() {					
 						@Override
 						public void run() {
@@ -620,8 +680,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 							} catch (INDIException e) {
 								e.printStackTrace();
 							}
-							command.setSpeedDE(0);
-							sendCommand();
+							slewDESpeed = 0;
+							updateSpeed();
 						}
 					};
 					Timer timer = new Timer();
@@ -664,8 +724,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					} catch (INDIException e) {
 						e.printStackTrace();
 					}
-					command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
-					sendCommand();
+					slewRASpeed = -motionSpeed;
+					updateSpeed();
 					TimerTask task = new TimerTask() {					
 						@Override
 						public void run() {
@@ -677,8 +737,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 							} catch (INDIException e) {
 								e.printStackTrace();
 							}
-							command.setSpeedRA(0);
-							sendCommand();
+							slewRASpeed = 0;
+							updateSpeed();
 						}
 					};
 					Timer timer = new Timer();
@@ -693,8 +753,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 					} catch (INDIException e) {
 						e.printStackTrace();
 					}
-					command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
-					sendCommand();
+					slewRASpeed = motionSpeed;
+					updateSpeed();
 					TimerTask task = new TimerTask() {					
 						@Override
 						public void run() {
@@ -706,8 +766,8 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 							} catch (INDIException e) {
 								e.printStackTrace();
 							}
-							command.setSpeedRA(0);
-							sendCommand();
+							slewRASpeed = 0;
+							updateSpeed();
 						}
 					};
 					Timer timer = new Timer();
@@ -923,18 +983,19 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				}
 	
 				if (motionNE.getValue() == SwitchStatus.ON) {
-					command.setSpeedDE(motionSpeed * (INVERT_DE ? -1 : 1)
-							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					slewDESpeed = motionSpeed;
+					updateSpeed();
 					telescopeMotionNSP.setState(PropertyStates.OK);
 				} else if (motionSE.getValue() == SwitchStatus.ON) {
-					command.setSpeedDE(-motionSpeed * (INVERT_DE ? -1 : 1)
-							* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1));
+					slewDESpeed = -motionSpeed;
+					updateSpeed();
 					telescopeMotionNSP.setState(PropertyStates.OK);
 				} else {
-					command.setSpeedDE(0);
+					slewDESpeed = 0;
+					updateSpeed();
 					telescopeMotionNSP.setState(PropertyStates.IDLE);
 				}
-				sendCommand();
+				
 	
 				try {
 					updateProperty(telescopeMotionNSP);
@@ -977,16 +1038,16 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				}
 	
 				if (motionWE.getValue() == SwitchStatus.ON) {
-					command.setSpeedRA(motionSpeed * (INVERT_RA ? -1 : 1));
+					slewRASpeed = -motionSpeed;
 					telescopeMotionWEP.setState(PropertyStates.OK);
 				} else if (motionEE.getValue() == SwitchStatus.ON) {
-					command.setSpeedRA(-motionSpeed * (INVERT_RA ? -1 : 1));
+					slewRASpeed = motionSpeed;
 					telescopeMotionWEP.setState(PropertyStates.OK);
 				} else {
-					command.setSpeedRA(0);
+					slewRASpeed = 0;
 					telescopeMotionWEP.setState(PropertyStates.IDLE);
 				}
-				sendCommand();
+				updateSpeed();
 	
 				try {
 					updateProperty(telescopeMotionWEP);
@@ -1057,34 +1118,54 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				} catch (INDIException e) {
 					e.printStackTrace();
 				}
+				
+				
 			}
 			
 			
-			// if (property == enableAxisP) {
-			// enableAxisP.setState(PropertyStates.IDLE);
-			// for (int i = 0; i < elementsAndValues.length; i++) {
-			// INDISwitchElement el = elementsAndValues[i].getElement();
-			// SwitchStatus val = elementsAndValues[i].getValue();
-			// if (val != el.getValue()) {
-			// el.setValue(val);
-			// enableAxisP.setState(PropertyStates.OK);
-			// }
-			// }
-			// try {
-			// updateProperty(enableAxisP);
-			// } catch (INDIException e) {
-			// e.printStackTrace();
-			// }
-			// }
-			//
+			if (property == trackRateP) {
+				trackRateP.setState(PropertyStates.IDLE);
+				for (int i = 0; i < elementsAndValues.length; i++) {
+					INDISwitchElement el = elementsAndValues[i].getElement();
+					SwitchStatus val = elementsAndValues[i].getValue();
+					if (val == SwitchStatus.ON) {
+						trackSideralE.setValue(SwitchStatus.OFF);
+						trackSolarE.setValue(SwitchStatus.OFF);
+						trackLunarE.setValue(SwitchStatus.OFF);
+						trackCustomE.setValue(SwitchStatus.OFF);
+						el.setValue(SwitchStatus.ON);
+						trackRateP.setState(PropertyStates.OK);		
+					}		
+				}
+
+				
+				if(trackSideralE.getValue()==SwitchStatus.ON){
+					trackSpeed = 1;
+				}else if(trackSolarE.getValue()==SwitchStatus.ON){
+					trackSpeed = 86164.0/86400.0;
+				}else if(trackLunarE.getValue()==SwitchStatus.ON){
+					trackSpeed = 27.0/28.0;
+				}else{
+					trackSpeed = 0;
+				}
+				updateSpeed();
+				
+				try {
+					updateProperty(trackRateP);
+				} catch (INDIException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			
 			if (property == abortMotionP) {
 				if (elementsAndValues.length > 0) {
 					if (elementsAndValues[0].getValue() == SwitchStatus.ON) {
 						abortMotionP.setState(PropertyStates.OK);
 						gotoActive = false;
-						command.setSpeedDE(0);
-						command.setSpeedRA(0);
-						sendCommand();
+						slewDESpeed = 0;
+						slewRASpeed = 0;
+						updateSpeed();
 	
 						motionEE.setValue(SwitchStatus.OFF);
 						motionWE.setValue(SwitchStatus.OFF);
@@ -1204,10 +1285,12 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		addProperty(telescopeMotionWEP);
 		addProperty(abortMotionP);
 		addProperty(motionRateP);
+		addProperty(currentRateP);
 		addProperty(timedGuideNSP);
 		addProperty(timedGuideWEP);
 		addProperty(servoP);
 		addProperty(focuserIntervalometerP);
+		addProperty(trackRateP);
 
 		syncCoordHA = getSiderealTime();
 		syncStepHA = 0;
@@ -1240,6 +1323,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		removeProperty(telescopeMotionWEP);
 		removeProperty(abortMotionP);
 		removeProperty(motionRateP);
+		removeProperty(currentRateP);
 		removeProperty(timedGuideNSP);
 		removeProperty(timedGuideWEP);
 		removeProperty(servoP);
@@ -1249,6 +1333,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		removeProperty(focusTimerP);
 		removeProperty(relFocusPosP);
 		removeProperty(absFocusPosP);
+		removeProperty(trackRateP);
 
 	}
 
@@ -1275,28 +1360,59 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	 */
 	protected abstract void sendCommand();
 
+	/**
+	 * @return the declination in deg (between -90deg and 270deg)
+	 */
+	protected double getDE(){
+		return mod360((lastStatusMessage.getDE() * (INVERT_DE ? -1 : 1) - syncStepDE) / STEP_BY_TURN * 360
+				* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1) + syncCoordDE +90)-90;
+	}
+	
+	/**
+	 * @return the declination in deg (between -90deg and 90deg)
+	 */
+	protected double getDE2(){
+		double DE = getDE();
+		if (DE > 90) {
+			DE = 180 - DE;
+		}
+		return DE;
+	}
+	
+	/**
+	 * @return the right ascension in hours (positive to the east, 12h bias if the dec is between 90 and 270)
+	 */
+	protected double getRA(){
+		return mod24(getSiderealTime() - getHA());
+	}
+	
+	/**
+	 * @return the right ascension in hours (positive to the east))
+	 */
+	protected double getRA2(){
+		double RA = getRA();
+		double DE = getDE();		
+		if (DE > 90) {
+			RA = mod24(RA + 12);
+		}
+		return RA;
+	}
+	
+	/**
+	 * @return the hour angle in hours
+	 */
+	protected double getHA(){
+		return (lastStatusMessage.getHA() * (INVERT_RA ? 1 : -1) - syncStepHA) / STEP_BY_TURN * 24 + syncCoordHA;
+	}
 	
 	/**
 	 * update the position properties from the status message
 	 */
 	protected void updateStatus() {
-		// System.out.print(lastStatusMesage);
-		double HA = (lastStatusMessage.getHA() * (INVERT_RA ? -1 : 1) - syncStepHA) / STEP_BY_TURN * 24 + syncCoordHA;
-		double RA = mod24(getSiderealTime() - HA);
 
-		double DE = mod360((lastStatusMessage.getDE() * (INVERT_DE ? -1 : 1) - syncStepDE) / STEP_BY_TURN * 360
-				* (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1) + syncCoordDE);
 
-		// if (DE > 90) {
-		// DE = 180 - DE;
-		// RA = mod24(RA + 12);
-		// } else if (DE < -90) {
-		// DE = -180 - DE;
-		// RA = mod24(RA + 12);
-		// }
-
-		eqCoordRAE.setValue(RA);
-		eqCoordDEE.setValue(DE);
+		eqCoordRAE.setValue(getRA2());
+		eqCoordDEE.setValue(getDE2());
 		currentTicksE.setValue((double)lastStatusMessage.getTicks());
 		command.setTicks(lastStatusMessage.getTicks());
 		
@@ -1320,7 +1436,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		syncCoordDE = DE;
 		syncStepDE = lastStatusMessage.getDE() * (INVERT_DE ? -1 : 1);
 		syncCoordHA = getSiderealTime() - RA;
-		syncStepHA = lastStatusMessage.getHA() * (INVERT_RA ? -1 : 1);
+		syncStepHA = lastStatusMessage.getHA() * (INVERT_RA ? 1 : -1);
 		eqCoordP.setState(PropertyStates.OK);
 		updateStatus();
 	}
@@ -1335,58 +1451,48 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		gotoTargetRA = RA;
 		gotoTargetDE = DE;
 		gotoActive = true;
+		lastGotoUpdate = new Date();
 	}
 
 	private void gotoUpdate() {
 		if (gotoActive) {
-			boolean regularTargetDE = (gotoTargetDE > -90) && (gotoTargetDE <= 90);
-			boolean regularCurrentDE = (eqCoordDEE.getValue() > -90.) && (eqCoordDEE.getValue() <= 90.);
-			float speedDE, speedRA;
-			boolean commandChanged = false;
 
+			double dt = ((new Date()).getTime()-lastGotoUpdate.getTime())/1000.;
+			lastGotoUpdate = new Date();
+
+			
 			// DE
-			if ((regularTargetDE && !regularCurrentDE) || (!regularTargetDE && regularCurrentDE)) {
-				// target and current position not in the same side. Go to north
-				// pole before to continue
-				speedDE = GOTO_SPEED * (regularCurrentDE ? 1 : -1);
-			} else {
-				double distanceDE = gotoTargetDE - eqCoordDEE.getValue();
-				if (Math.abs(distanceDE) > GOTO_SLOW_DISTANCE) {
-					speedDE = GOTO_SPEED * (distanceDE > 0 ? 1 : -1);
-				} else if (Math.abs(distanceDE) > GOTO_STOP_DISTANCE) {
-					speedDE = GOTO_SLOW_SPEED * (distanceDE > 0 ? 1 : -1);
-				} else {
-					speedDE = 0;
-				}
+			double distanceDE = gotoTargetDE - getDE();
+			if (Math.abs(distanceDE) < GOTO_STOP_DISTANCE){
+				slewDESpeed = 0;
+			}else if (2*Math.abs(distanceDE)*(GOTO_SPEED*15/3600/GOTO_ACC_T)>(slewDESpeed*360/86400)*(slewDESpeed*360/86400)){
+				slewDESpeed += GOTO_SPEED/GOTO_ACC_T *dt* (distanceDE > 0 ? 1 : -1);				
+			}else{
+				slewDESpeed = 86400/360*Math.sqrt(2*(Math.abs(distanceDE))*(GOTO_SPEED*15/3600/GOTO_ACC_T))*(distanceDE > 0 ? 1 : -1);
 			}
+			slewDESpeed = Math.min(Math.max(slewDESpeed,-GOTO_SPEED),GOTO_SPEED);
 
 			// RA
-			double distanceRA = mod24(gotoTargetRA - eqCoordRAE.getValue() + 12) - 12; // between
-																						// -12
-																						// and
-																						// 12
-			if (Math.abs(distanceRA) > GOTO_SLOW_DISTANCE * 24. / 360.) {
-				speedRA = GOTO_SPEED * (distanceRA > 0 ? 1 : -1);
-			} else if (Math.abs(distanceRA) > GOTO_STOP_DISTANCE * 24. / 360.) {
-				speedRA = GOTO_SLOW_SPEED * (distanceRA > 0 ? 1 : -1);
-			} else {
-				speedRA = 0;
+			double distanceRA = (mod24(gotoTargetRA - getRA() + 12) - 12)*15; // between -180 and 180
+			if (Math.abs(distanceRA) < GOTO_STOP_DISTANCE){
+				slewRASpeed = 0;
+			}else if (2*Math.abs(distanceRA)*(GOTO_SPEED*15/3600/GOTO_ACC_T)>(slewRASpeed*360/86400)*(slewRASpeed*360/86400)){
+				slewRASpeed += GOTO_SPEED/GOTO_ACC_T *dt* (distanceRA > 0 ? 1 : -1);				
+			}else if (Math.abs(distanceRA) > GOTO_STOP_DISTANCE){
+				slewRASpeed = 86400/360*Math.sqrt(2*(Math.abs(distanceRA))*(GOTO_SPEED*15/3600/GOTO_ACC_T))*(distanceRA > 0 ? 1 : -1);
 			}
+			slewRASpeed = Math.min(Math.max(slewRASpeed,-GOTO_SPEED),GOTO_SPEED);
 
-			speedDE *= (INVERT_DE ? -1 : 1) * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1);
-			speedRA *= (INVERT_RA ? -1 : 1);
+//			printMessage("distanceDE="+distanceDE);
+//			printMessage("slewDESpeed="+slewDESpeed);
+//			printMessage("distanceRA="+distanceRA);
+//			printMessage("slewRASpeed="+slewRASpeed);
+//			printMessage("GOTO_STOP_DISTANCE="+GOTO_STOP_DISTANCE);
 
-			if (speedDE != command.getSpeedDE()) {
-				command.setSpeedDE(speedDE);
-				commandChanged = true;
-			}
+			
+			updateSpeed();
 
-			if (speedRA != command.getSpeedRA()) {
-				command.setSpeedRA(speedRA);
-				commandChanged = true;
-			}
-
-			if (speedRA == 0 && speedDE == 0) {
+			if (slewRASpeed == 0 && slewDESpeed == 0) {
 				gotoActive = false;
 				eqCoordP.setState(PropertyStates.OK);
 				try {
@@ -1396,9 +1502,7 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 				}
 			}
 
-			if (commandChanged) {
-				sendCommand();
-			}
+
 
 		}
 	}
@@ -1419,15 +1523,14 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 	}
 
 	/**
-	 * returns the modulus 360 in [-180, 180[
+	 * returns the modulus 360 in [0, 360[
 	 * 
 	 * @param x
-	 * @return x modulus 360 in [-180, 180[
+	 * @return x modulus 360 in [0, 360[
 	 */
 	private double mod360(double x) {
 		double res = x % 360;
 		res += (res < 0 ? 360 : 0);
-		res += (res >= 180 ? -360 : 0);
 		return res;
 	}
 	
@@ -1554,6 +1657,31 @@ public abstract class INDIAstroidDriver extends INDIDriver implements INDIConnec
 		currentTicksE.setValue((double)ticks);
 		try {
 			updateProperty(servoP);
+		} catch (INDIException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void updateSpeed(){
+		double speedDE, speedRA;
+		speedDE = 0;
+		speedRA = -trackSpeed;
+		
+		speedDE += slewDESpeed * (sideEastE.getValue() == SwitchStatus.ON ? 1 : -1);
+		speedRA += slewRASpeed;
+		
+		speedDE *= (INVERT_DE ? -1:1);
+		speedRA *= (INVERT_RA ? -1:1);
+		command.setSpeedDE((float)speedDE);
+		command.setSpeedRA((float)speedRA);
+		sendCommand();
+		
+		currentRARateE.setValue(slewRASpeed);
+		currentDERateE.setValue(slewDESpeed);
+		trackingRateE.setValue(trackSpeed);
+		currentRateP.setState(PropertyStates.OK);
+		try {
+			updateProperty(currentRateP);
 		} catch (INDIException e) {
 			e.printStackTrace();
 		}
